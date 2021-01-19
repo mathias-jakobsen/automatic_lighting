@@ -1,3 +1,5 @@
 {
-  "name": "Motion Lighting"
+  "name": "Motion Lighting",
+  "content_in_root": true,
+  "render_readme": true
 }
