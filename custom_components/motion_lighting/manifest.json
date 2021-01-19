@@ -1,7 +1,8 @@
 {
+  "codeowners": ["@mathias-jakobsen"],
+  "config_flow": true,
+  "dependencies": [],
   "domain": "motion_lighting",
-  "documentation": "",
-  "issue_tracker": "",
-  "codeowners": "",
-  "name": "Motion Lighting"
+  "name": "Motion Lighting",
+  "requirements": []
 }

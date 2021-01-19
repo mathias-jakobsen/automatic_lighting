@@ -1,0 +1,46 @@
+
+motion_lighting:
+  - name: Profile1
+    tag: Hallway
+    after: "00:00:00"
+    before: "23:59:59"
+    duration: 180
+    limit: 3
+    illuminance: 160
+    block:
+      attributes: [brightness]
+      enabled: true
+      state: true
+      timeout: 60
+      variance: 0.1
+    entities:
+      illuminance: sensor.illuminance
+      lights: []
+      triggers: []
+    lights:
+      brightness: 40
+      kelvin: 2500
+    type: trigger
+
+  - name: Profile2
+    tag: Hallway
+    after: "00:00:00"
+    before: "23:59:59"
+    illuminance: 50
+    type: ambiance
+    block:
+      attributes: [rgb_color]
+      enabled: true
+      state: true
+      timeout: 60
+      variance: 0.1
+    entities:
+      illuminance: sensor.illuminance
+      lights: []
+    lights:
+      brightness: 50
+      kelvin: 4000
+
+
+
+
