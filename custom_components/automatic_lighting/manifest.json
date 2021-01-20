@@ -2,7 +2,7 @@
   "codeowners": ["@mathias-jakobsen"],
   "config_flow": true,
   "dependencies": [],
-  "domain": "motion_lighting",
-  "name": "Motion Lighting",
+  "domain": "automatic_lighting",
+  "name": "Automatic Lighting",
   "requirements": []
 }

@@ -12,7 +12,7 @@ from typing import Any, Dict
 #       Constants
 #-----------------------------------------------------------#
 
-DOMAIN = "motion_lighting"
+DOMAIN = "automatic_lighting"
 LOGGER = getLogger(__name__)
 PLATFORMS = ["switch"]
 UNDO_UPDATE_LISTENER = "undo_update_listener"
