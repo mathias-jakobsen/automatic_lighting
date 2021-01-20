@@ -17,6 +17,4 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     LOGGER.debug(f"Setting up config entry (id: {config_entry.entry_id}).")
     #entity = AL_Entity(LOGGER, config_entry)
     #async_add_entities([entity], update_before_add=True)
-    LOGGER.debug(config_entry.data)
-    LOGGER.debug(config_entry.options)
     return True

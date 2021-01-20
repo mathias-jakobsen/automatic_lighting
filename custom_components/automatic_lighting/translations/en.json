@@ -7,7 +7,10 @@
         "step": {
             "user": {
                 "title": "Automatic Lighting",
-                "description": "Once you have added the integration, use the options button to configure it."
+                "description": "Once you have added the integration, use the options button to configure it.",
+                "data": {
+                    "name": "Name"
+                }
             }
         }
     },
