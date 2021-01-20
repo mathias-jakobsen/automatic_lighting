@@ -1,0 +1,25 @@
+{
+    "title": "Automatic Lighting",
+    "config": {
+        "abort": {
+            "already_configured": "Integrationen er allerede blevet tilføjet."
+        },
+        "step": {
+            "user": {
+                "title": "Automatic Lighting",
+                "description": "Når du har tilføjet integrationen, kan du konfigure den igennem 'indstillinger' knappen."
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Indstillinger",
+                "description": "Her kan du konfigurere din 'Automatic Lighting' integration.",
+                "data": {
+                    "next_action": "What do you want to do?"
+                }
+            }
+        }
+    }
+}

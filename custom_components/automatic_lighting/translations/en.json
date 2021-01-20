@@ -1,0 +1,25 @@
+{
+    "title": "Automatic Lighting",
+    "config": {
+        "abort": {
+            "already_configured": "Integration is already configured."
+        },
+        "step": {
+            "user": {
+                "title": "Automatic Lighting",
+                "description": "Once you have added the integration, use the options button to configure it."
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Options",
+                "description": "From here you can configure the 'Automatic Lighting' integration.",
+                "data": {
+                    "next_action": "What do you want to do?"
+                }
+            }
+        }
+    }
+}
