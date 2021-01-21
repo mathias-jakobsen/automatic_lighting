@@ -2,10 +2,12 @@
 #       Imports
 #-----------------------------------------------------------#
 
-from .const import CONF_CONSTRAINTS, CONF_PRIORITY, CONF_PROFILES, CONF_SHARE, CONF_TEMPLATE, PROFILE_TYPE_ACTIVE, PROFILE_TYPE_IDLE
+from voluptuous.schema_builder import Required
+from . import DOMAIN
+from .const import CONF_CONFIRM, CONF_CONSTRAINTS, CONF_DELETE, CONF_GROUP, CONF_PRIORITY, CONF_PROFILES, CONF_TEMPLATE, PROFILE_TYPE_ACTIVE, PROFILE_TYPE_IDLE
 from homeassistant.const import CONF_ID, CONF_NAME, CONF_TYPE
 from homeassistant.core import HomeAssistant
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 import voluptuous as vol
 
 
@@ -14,20 +16,24 @@ import voluptuous as vol
 #-----------------------------------------------------------#
 
 CONFIG_SCHEMA = vol.Schema({
-    vol.Required(CONF_NAME): str
+    vol.Required(CONF_NAME, default=DOMAIN): str
 })
 
 ENTRY_SCHEMA = vol.Schema({
-    vol.Required(CONF_CONSTRAINTS, default=[]): [{
-        vol.Required(CONF_ID): str,
-        vol.Required(CONF_NAME): str,
-        vol.Required(CONF_TEMPLATE): str
-    }],
-    vol.Required(CONF_PROFILES, default=[]): [{
-        vol.Required(CONF_NAME): str,
-        vol.Required(CONF_TYPE, default=PROFILE_TYPE_ACTIVE): vol.In([PROFILE_TYPE_ACTIVE, PROFILE_TYPE_IDLE]),
-        vol.Required(CONF_PRIORITY, default=0): int
-    }]
+    vol.Required(CONF_CONSTRAINTS, default={}): {
+        str: {
+            vol.Required(CONF_NAME): str,
+            vol.Required(CONF_TEMPLATE): str
+        }
+    },
+    vol.Required(CONF_PROFILES, default={}): {
+        str: {
+            vol.Required(CONF_NAME): str,
+            vol.Required(CONF_GROUP): str,
+            vol.Required(CONF_TYPE, default=PROFILE_TYPE_ACTIVE): vol.In([PROFILE_TYPE_ACTIVE, PROFILE_TYPE_IDLE]),
+            vol.Required(CONF_PRIORITY, default=0): int
+        }
+    }
 })
 
 
@@ -35,16 +41,17 @@ ENTRY_SCHEMA = vol.Schema({
 #       Schema Builders
 #-----------------------------------------------------------#
 
-def schema_builder_step_constraints_edit(data: Dict[str, Any], hass: HomeAssistant) -> Dict[str, Any]:
-    return {
-        vol.Required(CONF_NAME, default=data[CONF_NAME]): str,
-        vol.Required(CONF_TEMPLATE, default=data[CONF_TEMPLATE]): str,
-        vol.Required(CONF_SHARE, default=False): bool
-    }
-    #return {
+def schema_builder_step_constraints_create(data: Dict[str, Any], hass: HomeAssistant) -> Dict[str, Any]:
+    return vol.Schema({
+        vol.Required(CONF_NAME, default=data.get(CONF_NAME, "New Constraint")): str,
+        vol.Optional(CONF_TEMPLATE, default=data.get(CONF_TEMPLATE, "{{ True }}")): str,
+        vol.Required(CONF_CONFIRM, default=False): bool
+    })
 
-    #    vol.Required(CONF_ENABLED, default=data[CONF_ENABLED]): bool,
-    #    vol.Optional(CONF_STATE, default=data[CONF_STATE]): bool,
-    #    vol.Optional(CONF_ATTRIBUTES, default=data[CONF_ATTRIBUTES]): cv.multi_select(BLOCK_ATTRIBUTES),
-    #    vol.Optional(CONF_DURATION, default=data[CONF_DURATION]): cv.positive_int
-    #}
+def schema_builder_step_constraints_edit(data: Dict[str, Any], hass: HomeAssistant) -> Dict[str, Any]:
+    return vol.Schema({
+        vol.Required(CONF_NAME, default=data[CONF_NAME]): str,
+        vol.Optional(CONF_TEMPLATE, default=data[CONF_TEMPLATE]): str,
+        vol.Required(CONF_DELETE, default=False): bool,
+        vol.Required(CONF_CONFIRM, default=False): bool
+    })

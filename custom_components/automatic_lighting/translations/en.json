@@ -15,12 +15,42 @@
         }
     },
     "options": {
+        "error": {
+            "invalid_template": "Template is invalid.",
+            "name_already_used": "Name is already in use."
+        },
         "step": {
             "init": {
                 "title": "Options",
                 "description": "From here you can configure the 'Automatic Lighting' integration.",
                 "data": {
                     "next_action": "What do you want to do?"
+                }
+            },
+            "constraints": {
+                "title": "Constraints",
+                "description": "Create or edit templated constraints.",
+                "data": {
+                    "next_action": "What do you want to do?"
+                }
+            },
+            "constraints_create": {
+                "title": "Create Constraint",
+                "description": "Create a new constraint.",
+                "data": {
+                    "name": "Name",
+                    "template": "Template",
+                    "confirm": "Are you sure you want to create the constraint?"
+                }
+            },
+            "constraints_edit": {
+                "title": "Edit Constraint",
+                "description": "Edit a new constraint.",
+                "data": {
+                    "name": "Name",
+                    "template": "Template",
+                    "delete": "Delete this constraint.",
+                    "confirm": "Are you sure you want to edit the constraint?"
                 }
             }
         }
