@@ -2,6 +2,7 @@
 #       Imports
 #-----------------------------------------------------------#
 
+from .const import DOMAIN, PLATFORMS, UNDO_UPDATE_LISTENER
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from logging import getLogger
@@ -12,10 +13,7 @@ from typing import Any, Dict
 #       Constants
 #-----------------------------------------------------------#
 
-DOMAIN = "automatic_lighting"
 LOGGER = getLogger(__name__)
-PLATFORMS = ["switch"]
-UNDO_UPDATE_LISTENER = "undo_update_listener"
 
 
 #-----------------------------------------------------------#
