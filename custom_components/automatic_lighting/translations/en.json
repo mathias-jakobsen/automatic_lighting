@@ -21,9 +21,6 @@
                 "description": "From here you can configure the 'Automatic Lighting' integration.",
                 "data": {
                     "block_enabled": "Enable automatic blocking.",
-                    "block_state": "Block on state changes.",
-                    "block_attributes": "Block on attributes",
-                    "block_variance": "Max variance (in %)",
                     "block_timeout": "Timeout period (in seconds)"
                 }
             }

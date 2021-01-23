@@ -3,23 +3,10 @@
 #-----------------------------------------------------------#
 
 from __future__ import annotations
-from . import LOGGER
-from .const import CONF_BLOCK_ATTRIBUTES, CONF_BLOCK_ENABLED, CONF_BLOCK_STATE, CONF_BLOCK_TIMEOUT, CONF_BLOCK_VARIANCE, DOMAIN
+from .const import CONF_BLOCK_ENABLED, CONF_BLOCK_TIMEOUT, DOMAIN
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
-from homeassistant.components.light import (
-    ATTR_BRIGHTNESS,
-    ATTR_COLOR_NAME,
-    ATTR_COLOR_TEMP,
-    ATTR_HS_COLOR,
-    ATTR_KELVIN,
-    ATTR_RGB_COLOR,
-    ATTR_WHITE_VALUE,
-    ATTR_XY_COLOR
-)
 from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
-from homeassistant.helpers import config_validation as cv
-from homeassistant.util import get_random_string
 from typing import Any, Dict, Union
 import voluptuous as vol
 
@@ -31,18 +18,6 @@ import voluptuous as vol
 # ------ Abort Reasons ---------------
 ABORT_REASON_ALREADY_CONFIGURED = "already_configured"
 
-# ------ Block Attributes ---------------
-BLOCK_ATTRIBUTES = [
-    ATTR_BRIGHTNESS,
-    ATTR_COLOR_NAME,
-    ATTR_COLOR_TEMP,
-    ATTR_HS_COLOR,
-    ATTR_KELVIN,
-    ATTR_RGB_COLOR,
-    ATTR_XY_COLOR,
-    ATTR_WHITE_VALUE
-]
-
 # ------ Steps ---------------
 STEP_INIT = "init"
 STEP_USER = "user"
@@ -52,20 +27,9 @@ CONFIG_SCHEMA = vol.Schema({
     vol.Required(CONF_NAME, default=DOMAIN): str
 })
 
-OPTIONS_SCHEMA = vol.Schema({
-    vol.Required(CONF_BLOCK_ENABLED, default=False): bool,
-    vol.Required(CONF_BLOCK_STATE, default=True): bool,
-    vol.Required(CONF_BLOCK_ATTRIBUTES, default=[]): cv.multi_select(BLOCK_ATTRIBUTES),
-    vol.Required(CONF_BLOCK_VARIANCE, default=10): vol.All(int, vol.Range(min=0)),
-    vol.Required(CONF_BLOCK_TIMEOUT, default=600): vol.All(int, vol.Range(min=0))
-})
-
 # ------ Tuples ---------------
 OPTIONS_VALIDATORS = [
     (CONF_BLOCK_ENABLED, False, bool),
-    (CONF_BLOCK_STATE, True, bool),
-    (CONF_BLOCK_ATTRIBUTES, [], cv.multi_select(BLOCK_ATTRIBUTES)),
-    (CONF_BLOCK_VARIANCE, 10, vol.All(int, vol.Range(min=0))),
     (CONF_BLOCK_TIMEOUT, 600, vol.All(int, vol.Range(min=0)))
 ]
 
