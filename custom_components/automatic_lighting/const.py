@@ -20,6 +20,9 @@ UNDO_UPDATE_LISTENER = "undo_update_listener"
 CONF_BLOCK_ENABLED = "block_enabled"
 CONF_BLOCK_TIMEOUT = "block_timeout"
 
+# ------ Events ---------------
+EVENT_AUTOMATIC_LIGHTING_RELOADED = "automatic_lighting_reloaded"
+
 # ------ Services ---------------
 SERVICE_REGISTER_LIGHTS = "register_lights"
 SERVICE_SET_AMBIANCE_LIGHTING = "set_ambiance_lighting"

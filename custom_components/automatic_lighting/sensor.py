@@ -150,7 +150,7 @@ class AL_Model():
         if self._manual_control_tracker is not None:
             self._manual_control_tracker.destroy()
 
-    async def initialize(self) -> None:
+    async def initialize(self, _ = None) -> None:
         if self._manual_control_tracker:
             self._remove_listeners.append(self._manual_control_tracker.listen(self._async_on_manual_control))
 
@@ -162,11 +162,8 @@ class AL_Model():
     #--------------------------------------------#
 
     async def register_lights(self, target: Dict[str, Any]) -> None:
-
-        entity_ids = await self._async_resolve_target(target)
-        LOGGER.debug(entity_ids)
-        #if self._manual_control_tracker is not None:
-            #self._manual_control_tracker.add_entity_ids(entity_ids)
+        if self._manual_control_tracker is not None:
+            self._manual_control_tracker.add_entity_ids(await self._async_resolve_target(target))
 
 
     #--------------------------------------------#
