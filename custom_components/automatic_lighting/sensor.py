@@ -4,11 +4,10 @@
 
 from __future__ import annotations
 from . import LOGGER
-from .config_flow import get_options_schema
-from .const import CONF_BLOCK_ENABLED, CONF_BLOCK_TIMEOUT, SERVICE_REGISTER_LIGHTS, SERVICE_SCHEMA_REGISTER_LIGHTS, SERVICE_SCHEMA_SET_AMBIANCE_LIGHTING, SERVICE_SET_AMBIANCE_LIGHTING, STATE_AMBIANCE
+from .const import CONF_BLOCK_LIGHTS, CONF_BLOCK_TIMEOUT, SERVICE_SCHEMA_TURN_OFF, SERVICE_SCHEMA_TURN_ON, STATE_AMBIANCE
 from .utils import ContextGenerator, ManualControlTracker
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_LIGHTS, CONF_NAME, EVENT_HOMEASSISTANT_START
+from homeassistant.const import CONF_ENTITY_ID, CONF_LIGHTS, CONF_NAME, CONF_TYPE, EVENT_HOMEASSISTANT_START, SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.core import Context, HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.entity import Entity
@@ -20,11 +19,10 @@ from typing import Any, Callable, Dict, List
 #-----------------------------------------------------------#
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: Callable) -> bool:
-    entity = AL_Entity(config_entry)
-    async_add_entities([entity], update_before_add=True)
+    async_add_entities([AL_Entity(config_entry)], update_before_add=True)
     platform = entity_platform.current_platform.get()
-    platform.async_register_entity_service(SERVICE_REGISTER_LIGHTS, SERVICE_SCHEMA_REGISTER_LIGHTS, async_service_register_lights)
-    platform.async_register_entity_service(SERVICE_SET_AMBIANCE_LIGHTING, SERVICE_SCHEMA_SET_AMBIANCE_LIGHTING, async_service_set_ambiance_lighting)
+    platform.async_register_entity_service(SERVICE_TURN_OFF, SERVICE_SCHEMA_TURN_OFF, async_service_turn_off)
+    platform.async_register_entity_service(SERVICE_TURN_ON, SERVICE_SCHEMA_TURN_ON, async_service_turn_on)
     return True
 
 
@@ -32,11 +30,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 #       Services
 #-----------------------------------------------------------#
 
-async def async_service_register_lights(entity: AL_Entity, service_call: ServiceCall) -> None:
-    await entity.model.register_lights(service_call.data.get(CONF_LIGHTS))
+async def async_service_turn_off(entity: AL_Entity, service_call: ServiceCall) -> None:
+    return await entity.model.async_turn_off({ **service_call.data })
 
-async def async_service_set_ambiance_lighting(entity: AL_Entity, service_call: ServiceCall) -> None:
-    pass
+async def async_service_turn_on(entity: AL_Entity, service_call: ServiceCall) -> None:
+    return await entity.model.async_turn_on({ **service_call.data })
 
 
 #-----------------------------------------------------------#
@@ -50,7 +48,7 @@ class AL_Entity(Entity):
 
     def __init__(self, config_entry: ConfigEntry):
         self._attributes = []
-        self._config = get_options_schema(config_entry.options)({ **config_entry.options })
+        self._config = config_entry.options
         self._model = None
         self._name = f"Automatic Lighting - {config_entry.data[CONF_NAME]}"
         self._state = STATE_AMBIANCE
@@ -129,13 +127,13 @@ class AL_Model():
     #--------------------------------------------#
 
     def __init__(self, hass: HomeAssistant, config: Dict[str, Any], entity: AL_Entity):
-        self._block_enabled = config[CONF_BLOCK_ENABLED]
-        self._block_timeout = config[CONF_BLOCK_TIMEOUT]
+        self._block_lights = config.get(CONF_BLOCK_LIGHTS, [])
+        self._block_timeout = config.get(CONF_BLOCK_TIMEOUT, 60)
         self._context = ContextGenerator()
         self._current_profile = None
         self._entity = entity
         self._hass = hass
-        self._manual_control_tracker = ManualControlTracker(hass, self._context) if config[CONF_BLOCK_ENABLED] else None
+        self._manual_control_tracker = ManualControlTracker(hass, self._context, self._block_lights)
         self._remove_listeners = []
 
 
@@ -147,23 +145,26 @@ class AL_Model():
         while self._remove_listeners:
             self._remove_listeners.pop()()
 
-        if self._manual_control_tracker is not None:
-            self._manual_control_tracker.destroy()
+        self._manual_control_tracker.destroy()
 
     async def initialize(self, _ = None) -> None:
-        if self._manual_control_tracker:
-            self._remove_listeners.append(self._manual_control_tracker.listen(self._async_on_manual_control))
-
-        self._hass.bus.async_fire("automatic_lighting_reloaded", { "entity_id": self._entity.entity_id })
+        self._remove_listeners.append(self._manual_control_tracker.listen(self._async_on_manual_control))
 
 
     #--------------------------------------------#
     #       Methods - Services
     #--------------------------------------------#
 
-    async def register_lights(self, target: Dict[str, Any]) -> None:
-        if self._manual_control_tracker is not None:
-            self._manual_control_tracker.add_entity_ids(await self._async_resolve_target(target))
+    async def async_turn_off(self, service_data: Dict[str, Any]) -> None:
+        pass
+
+    async def async_turn_on(self, service_data: Dict[str, Any]) -> None:
+        type = service_data.pop(CONF_TYPE)
+        lights = self._async_resolve_entity_dict(service_data.pop(CONF_LIGHTS, {}))
+        attributes = service_data
+
+
+
 
 
     #--------------------------------------------#
@@ -178,15 +179,15 @@ class AL_Model():
     #       Private Methods
     #--------------------------------------------#
 
-    async def _async_resolve_target(self, target: Dict[str, Any]) -> List[str]:
+    async def _async_resolve_entity_dict(self, entity_dict: Dict[str, Any]) -> List[str]:
         result = []
 
         entity_registry = await self._hass.helpers.entity_registry.async_get_registry()
         entity_entries = entity_registry.entities.values()
 
-        target_areas = cv.ensure_list(target["area_id"])
-        target_devices = cv.ensure_list(target["device_id"])
-        target_entities = cv.ensure_list(target["entity_id"])
+        target_areas = cv.ensure_list(entity_dict["area_id"])
+        target_devices = cv.ensure_list(entity_dict["device_id"])
+        target_entities = cv.ensure_list(entity_dict["entity_id"])
 
         for entity in entity_entries:
             if entity.disabled:

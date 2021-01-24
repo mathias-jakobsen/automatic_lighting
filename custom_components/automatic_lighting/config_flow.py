@@ -3,10 +3,12 @@
 #-----------------------------------------------------------#
 
 from __future__ import annotations
-from .const import CONF_BLOCK_ENABLED, CONF_BLOCK_TIMEOUT, DOMAIN
+from .const import CONF_BLOCK_LIGHTS, CONF_BLOCK_TIMEOUT, DEFAULT_BLOCK_LIGHTS, DEFAULT_BLOCK_TIMEOUT, DOMAIN
+from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
+from homeassistant.helpers import config_validation as cv
 from typing import Any, Dict, Union
 import voluptuous as vol
 
@@ -22,29 +24,9 @@ ABORT_REASON_ALREADY_CONFIGURED = "already_configured"
 STEP_INIT = "init"
 STEP_USER = "user"
 
-# ------ Schemas ---------------
-CONFIG_SCHEMA = vol.Schema({
-    vol.Required(CONF_NAME, default=DOMAIN): str
-})
-
-# ------ Tuples ---------------
-OPTIONS_VALIDATORS = [
-    (CONF_BLOCK_ENABLED, False, bool),
-    (CONF_BLOCK_TIMEOUT, 600, vol.All(int, vol.Range(min=0)))
-]
-
 
 #-----------------------------------------------------------#
-#       Functions
-#-----------------------------------------------------------#
-
-def get_options_schema(data: Dict[str, Any]) -> vol.Schema:
-    validators = { vol.Optional(key, default=data.get(key, default)): validator for key, default, validator in OPTIONS_VALIDATORS }
-    return vol.Schema(validators)
-
-
-#-----------------------------------------------------------#
-#       Config Flow
+#       Config Flowx
 #-----------------------------------------------------------#
 
 class AL_ConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -75,7 +57,8 @@ class AL_ConfigFlow(ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
             return self.async_create_entry(title=user_input[CONF_NAME], data=user_input)
 
-        return self.async_show_form(step_id=STEP_USER, data_schema=CONFIG_SCHEMA)
+        schema = vol.Schema({ vol.Required(CONF_NAME, default=DOMAIN): str })
+        return self.async_show_form(step_id=STEP_USER, data_schema=schema)
 
 
 #-----------------------------------------------------------#
@@ -89,7 +72,7 @@ class AL_OptionsFlow(OptionsFlow):
 
     def __init__(self, config_entry: ConfigEntry):
         self._config_entry = config_entry
-        self._data = get_options_schema(config_entry.options)({ **config_entry.options })
+        self._data = { **config_entry.options }
 
 
     #--------------------------------------------#
@@ -100,5 +83,10 @@ class AL_OptionsFlow(OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        schema = get_options_schema(self._data)
+        light_entity_ids = self._hass.states.async_entity_ids(domain_filter=LIGHT_DOMAIN)
+        schema = vol.Schema({
+            vol.Required(CONF_BLOCK_LIGHTS, default=self._data.get(CONF_BLOCK_LIGHTS, DEFAULT_BLOCK_LIGHTS)): cv.multi_select(light_entity_ids),
+            vol.Required(CONF_BLOCK_TIMEOUT, default=self._data.get(CONF_BLOCK_TIMEOUT, DEFAULT_BLOCK_TIMEOUT)): vol.All(int, vol.Range(min=0))
+        })
+
         return self.async_show_form(step_id=STEP_INIT, data_schema=schema)
