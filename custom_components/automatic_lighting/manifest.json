@@ -1,7 +1,7 @@
 {
   "codeowners": ["@mathias-jakobsen"],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["automation", "light", "sensor"],
   "domain": "automatic_lighting",
   "name": "Automatic Lighting",
   "requirements": []
