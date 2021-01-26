@@ -23,7 +23,7 @@ from typing import Any, Callable, Dict, List
 #       Constants
 #-----------------------------------------------------------#
 
-REFRESH_THROTTLE_TIME = 200
+REFRESH_DEBOUNCE_TIME = 200
 START_DELAY = 500
 
 
@@ -111,8 +111,10 @@ class AL_Entity(Entity):
         """ Updates the state of the entity. """
         if self._state != state:
             self._logger.debug(f"Entity state changed from {self._state} to {state}.")
+
         self._attributes = { key: str(value) for key, value in attributes.items() if value is not None }
         self._state = state
+
         self.async_schedule_update_ha_state(True)
 
 
@@ -160,15 +162,12 @@ class AL_Model():
 
         # ------ Profiles ---------------
         self._current_profile = None
-        self._current_refresh_profile = None
+        self._refresh_profile = None
 
-        # ------ Timers ---------------
+        # ------ Listeners & Timers ---------------
         self._block_timer = None
-        self._refresh_throttle_timer = None
-
-
-
         self._manual_control_tracker = ManualControlTracker(hass, self._context, self._block_lights)
+        self._refresh_timer = None
         self._remove_listeners = []
 
 
@@ -182,7 +181,7 @@ class AL_Model():
 
     @property
     def is_refreshing(self) -> bool:
-        return self._refresh_throttle_timer is not None and self._refresh_throttle_timer.is_running
+        return self._refresh_timer is not None and self._refresh_timer.is_running
 
 
     #--------------------------------------------#
@@ -195,14 +194,13 @@ class AL_Model():
 
         self._block_timer and self._block_timer.cancel()
         self._manual_control_tracker.destroy()
-        self._refresh_throttle_timer and self._refresh_throttle_timer.cancel()
+        self._refresh_timer and self._refresh_timer.cancel()
 
     async def async_initialize(self, _ = None) -> None:
+        self._logger.debug(f"Entity is being initialized.")
         self._remove_listeners.append(self._manual_control_tracker.listen(self._async_on_manual_control))
         self._remove_listeners.append(self._hass.bus.async_listen(EVENT_AUTOMATION_RELOADED, self._async_on_automations_reloaded))
         self._remove_listeners.append(self._hass.bus.async_listen(EVENT_STATE_CHANGED, self._async_on_automation_state_change))
-
-        self._logger.debug(f"Entity has initialized.")
         self._remove_listeners.append(async_call_later(self._hass, START_DELAY / 1000, self._async_refresh))
 
 
