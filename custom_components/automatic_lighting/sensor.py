@@ -217,6 +217,7 @@ class AL_Model():
         self._block_timeout = timeout
         self._blocked_until = datetime.now() + timedelta(seconds=self._block_timeout)
         self._block_timer = Timer(self._hass, timeout, self.async_unblock)
+
         await self._entity.async_update_entity(state=STATE_BLOCKED, **{ ATTR_BLOCKED_UNTIL: self._blocked_until })
 
     async def async_unblock(self, _ = None) -> None:
@@ -229,8 +230,6 @@ class AL_Model():
         await self._async_refresh(True)
 
     async def async_turn_off(self, service_data: Dict[str, Any]) -> None:
-        self._logger.debug(f"Registered a call to the {DOMAIN}.{SERVICE_TURN_OFF} service with the following data: {service_data}")
-
         if self.is_blocked:
             return
 
@@ -245,31 +244,31 @@ class AL_Model():
     async def async_turn_on(self, service_data: Dict[str, Any]) -> None:
         entity_id = service_data.pop(CONF_ENTITY_ID)
         id = service_data.pop(CONF_ID)
+        entity_ids = await self._async_resolve_entity_dict(service_data.pop(CONF_LIGHTS, {}))
         type = service_data.pop(CONF_TYPE)
-        lights = await self._async_resolve_entity_dict(service_data.pop(CONF_LIGHTS, {}))
         attributes = service_data
 
         if self.is_refreshing:
-            self._logger.debug(f"Registered a turn on call while refreshing. {[id, type, lights, attributes]}")
-
             if self._current_refresh_profile and type == STATE_AMBIANCE and self._current_refresh_profile.type == STATE_TRIGGERED:
                 return
 
-            self._current_refresh_profile = Profile(id, type, lights, attributes)
+            self._current_refresh_profile = Profile(id, type, entity_ids, attributes)
             return
 
         if self.is_blocked:
             return await self.async_block(self._block_config_timeout)
 
         if self._current_profile:
-            old_lights = [light for light in self._current_profile.entity_ids if light not in lights]
-            await self._async_call_service(SERVICE_TURN_OFF, old_lights)
+            self._turn_off_unused_entities(self._current_profile.entity_ids, entity_ids)
 
-        self._logger.debug(f"Registered a call to the {DOMAIN}.{SERVICE_TURN_ON} service with the following data: {[id, type, lights, attributes]}")
-        self._current_profile = Profile(id, type, lights, attributes)
+        self._current_profile = Profile(id, type, entity_ids, attributes)
 
-        await self._entity.async_update_entity(type)
-        await self._async_call_service(SERVICE_TURN_ON, self._current_profile.entity_ids, self._current_profile.attributes)
+        self._entity.async_update_entity(type)
+        self._call_service(SERVICE_TURN_ON, self._current_profile.entity_ids, self._current_profile.attributes)
+
+    def _turn_off_unused_entities(self, old_entity_ids, new_entity_ids: List[str]):
+        unused_entities = [entity_id for entity_id in old_entity_ids if entity_id not in new_entity_ids]
+        self._call_service(SERVICE_TURN_OFF, unused_entities)
 
 
     #--------------------------------------------#
