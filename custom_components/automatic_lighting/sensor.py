@@ -255,8 +255,9 @@ class AL_Model():
         if self.is_blocked:
             return await self.async_block(self._block_config_timeout)
 
-        if self._ambiance_timer:
-            self._ambiance_timer.cancel()
+        if self._current_profile:
+            old_lights = [light for light in self._current_profile.entity_ids if light not in lights]
+            await self._async_call_service(SERVICE_TURN_OFF, old_lights)
 
         self._logger.debug(f"Registered a call to the {DOMAIN}.{SERVICE_TURN_ON} service with the following data: {[id, type, lights, attributes]}")
         self._current_profile = Profile(id, type, lights, attributes)
@@ -305,7 +306,9 @@ class AL_Model():
     async def _async_call_service(self, service: str, entity_ids: List[str], service_data: Dict[str, Any] = {}) -> None:
         self._logger.debug(f"Calling {LIGHT_DOMAIN}.{service} with following service data: {service_data}")
         parsed_service_data = self._parse_service_data(service_data)
-        await self._hass.services.async_call(LIGHT_DOMAIN, service, { CONF_ENTITY_ID: entity_ids, **parsed_service_data }, context=self._context.generate())
+        self._hass.async_create_task(
+            self._hass.services.async_call(LIGHT_DOMAIN, service, { CONF_ENTITY_ID: entity_ids, **parsed_service_data }, context=self._context.generate())
+        )
 
     async def _async_refresh(self, bypass_block: bool = False):
         if self._refresh_throttle_timer and self._refresh_throttle_timer.is_running:
@@ -322,6 +325,11 @@ class AL_Model():
             if self._current_refresh_profile:
                 if not self._entity.state == self._current_refresh_profile.type:
                     await self._entity.async_update_entity(self._current_refresh_profile.type)
+
+                if self._current_profile and (not self.is_blocked or self.is_blocked and bypass_block):
+                    old_lights = [light for light in self._current_profile.entity_ids if light not in self._current_refresh_profile.entity_ids]
+                    await self._async_call_service(SERVICE_TURN_OFF, old_lights)
+
                 self._current_profile = self._current_refresh_profile
                 return await self._async_call_service(SERVICE_TURN_ON, self._current_refresh_profile.entity_ids, self._current_refresh_profile.attributes)
             elif self._current_profile:

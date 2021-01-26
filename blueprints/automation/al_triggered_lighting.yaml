@@ -1,0 +1,116 @@
+blueprint:
+  name: AL - Triggered Lighting (Brightness & Color Temperature)
+  description: |
+    Uses the 'Automatic Lighting' integration to create a profile that will turn on lighting when a trigger is triggered.
+  domain: automation
+  input:
+    al_entity:
+      name: Automatic Lighting Entity
+      description: The 'Automatic Lighting' entity used to track the lighting.
+      selector:
+        entity:
+          integration: automatic_lighting
+    triggers:
+      name: Triggers
+      description: The trigger(s) that will activate the lighting.
+      selector:
+        entity:
+    lights:
+      name: Lights
+      description: The lights that should be turned on.
+      selector:
+        target:
+          entity:
+            domain: light
+    time_after:
+      name: After
+      description: The time after which the lights can be turned on.
+      default: "00:00:00"
+      selector:
+        time:
+    time_before:
+      name: Before
+      description: The time before which the lights can be turned on.
+      default: "23:59:59"
+      selector:
+        time:
+    brightness:
+      name: Brightness
+      description: The brightness (in %) that the lights should be set to when turned on.
+      default: 100
+      selector:
+        number:
+          mode: slider
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    color_temp:
+      name: Color Temperature
+      description: The color temperature (in kelvin) that the lights should be set to when turned on.
+      default: 3000
+      selector:
+        number:
+          mode: slider
+          min: 2200
+          max: 6500
+          step: 25
+          unit_of_measurement: K
+    duration:
+      name: Duration
+      description: The duration (in seconds) that the lights are turned on.
+      default: 60
+      selector:
+        number:
+          mode: box
+          min: 1
+          max: 100000
+          unit_of_measurement: s
+
+max_exceeded: silent
+mode: restart
+
+variables:
+  raw_triggers: !input triggers
+  triggers: >-
+    {{ (raw_triggers|replace(' ', '')).split(',') }}
+
+trigger:
+  - platform: event
+    event_type: automation_reloaded
+  - platform: event
+    event_type: automatic_lighting_event
+    event_data:
+      entity_id: !input al_entity
+      type: refresh
+  - platform: state
+    entity_id: !input triggers
+    to: "on"
+condition:
+  - "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count > 0 }}"
+  - condition: time
+    after: !input time_after
+    before: !input time_before
+action:
+  - variables:
+      id: >-
+        {% set ns = namespace(unique_id=[]) %}
+        {% for i in range(0, 10) %}
+          {% set ns.unique_id = ns.unique_id + [[0,1,2,3,4,5,6,7,8,9]|random] %}
+        {% endfor %}
+        {{ ns.unique_id|join("") }}
+  - service: automatic_lighting.turn_on
+    data:
+      entity_id: !input al_entity
+      id: "{{ id }}"
+      type: triggered
+      lights: !input lights
+      brightness: !input brightness
+      kelvin: !input color_temp
+  - wait_template: >-
+      {{ expand(triggers)|selectattr('state', 'eq', 'off')|list|count == triggers|length }}
+  - delay: !input duration
+  - service: automatic_lighting.turn_off
+    data:
+      entity_id: !input al_entity
+      id: "{{ id }}"
