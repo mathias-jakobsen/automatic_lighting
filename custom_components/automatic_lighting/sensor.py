@@ -23,7 +23,7 @@ from typing import Any, Callable, Dict, List
 #       Constants
 #-----------------------------------------------------------#
 
-REFRESH_THROTTLE_TIME = 200
+REFRESH_DEBOUNCE_TIME = 200
 START_DELAY = 500
 
 
@@ -111,8 +111,10 @@ class AL_Entity(Entity):
         """ Updates the state of the entity. """
         if self._state != state:
             self._logger.debug(f"Entity state changed from {self._state} to {state}.")
+
         self._attributes = { key: str(value) for key, value in attributes.items() if value is not None }
         self._state = state
+
         self.async_schedule_update_ha_state(True)
 
 
@@ -160,15 +162,12 @@ class AL_Model():
 
         # ------ Profiles ---------------
         self._current_profile = None
-        self._current_refresh_profile = None
+        self._refresh_profile = None
 
-        # ------ Timers ---------------
+        # ------ Listeners & Timers ---------------
         self._block_timer = None
-        self._refresh_throttle_timer = None
-
-
-
         self._manual_control_tracker = ManualControlTracker(hass, self._context, self._block_lights)
+        self._refresh_timer = None
         self._remove_listeners = []
 
 
@@ -182,7 +181,7 @@ class AL_Model():
 
     @property
     def is_refreshing(self) -> bool:
-        return self._refresh_throttle_timer is not None and self._refresh_throttle_timer.is_running
+        return self._refresh_timer is not None and self._refresh_timer.is_running
 
 
     #--------------------------------------------#
@@ -195,14 +194,13 @@ class AL_Model():
 
         self._block_timer and self._block_timer.cancel()
         self._manual_control_tracker.destroy()
-        self._refresh_throttle_timer and self._refresh_throttle_timer.cancel()
+        self._refresh_timer and self._refresh_timer.cancel()
 
     async def async_initialize(self, _ = None) -> None:
+        self._logger.debug(f"Entity is being initialized.")
         self._remove_listeners.append(self._manual_control_tracker.listen(self._async_on_manual_control))
         self._remove_listeners.append(self._hass.bus.async_listen(EVENT_AUTOMATION_RELOADED, self._async_on_automations_reloaded))
         self._remove_listeners.append(self._hass.bus.async_listen(EVENT_STATE_CHANGED, self._async_on_automation_state_change))
-
-        self._logger.debug(f"Entity has initialized.")
         self._remove_listeners.append(async_call_later(self._hass, START_DELAY / 1000, self._async_refresh))
 
 
@@ -219,6 +217,7 @@ class AL_Model():
         self._block_timeout = timeout
         self._blocked_until = datetime.now() + timedelta(seconds=self._block_timeout)
         self._block_timer = Timer(self._hass, timeout, self.async_unblock)
+
         await self._entity.async_update_entity(state=STATE_BLOCKED, **{ ATTR_BLOCKED_UNTIL: self._blocked_until })
 
     async def async_unblock(self, _ = None) -> None:
@@ -231,8 +230,6 @@ class AL_Model():
         await self._async_refresh(True)
 
     async def async_turn_off(self, service_data: Dict[str, Any]) -> None:
-        self._logger.debug(f"Registered a call to the {DOMAIN}.{SERVICE_TURN_OFF} service with the following data: {service_data}")
-
         if self.is_blocked:
             return
 
@@ -247,31 +244,31 @@ class AL_Model():
     async def async_turn_on(self, service_data: Dict[str, Any]) -> None:
         entity_id = service_data.pop(CONF_ENTITY_ID)
         id = service_data.pop(CONF_ID)
+        entity_ids = await self._async_resolve_entity_dict(service_data.pop(CONF_LIGHTS, {}))
         type = service_data.pop(CONF_TYPE)
-        lights = await self._async_resolve_entity_dict(service_data.pop(CONF_LIGHTS, {}))
         attributes = service_data
 
         if self.is_refreshing:
-            self._logger.debug(f"Registered a turn on call while refreshing. {[id, type, lights, attributes]}")
-
             if self._current_refresh_profile and type == STATE_AMBIANCE and self._current_refresh_profile.type == STATE_TRIGGERED:
                 return
 
-            self._current_refresh_profile = Profile(id, type, lights, attributes)
+            self._current_refresh_profile = Profile(id, type, entity_ids, attributes)
             return
 
         if self.is_blocked:
             return await self.async_block(self._block_config_timeout)
 
         if self._current_profile:
-            old_lights = [light for light in self._current_profile.entity_ids if light not in lights]
-            await self._async_call_service(SERVICE_TURN_OFF, old_lights)
+            self._turn_off_unused_entities(self._current_profile.entity_ids, entity_ids)
 
-        self._logger.debug(f"Registered a call to the {DOMAIN}.{SERVICE_TURN_ON} service with the following data: {[id, type, lights, attributes]}")
-        self._current_profile = Profile(id, type, lights, attributes)
+        self._current_profile = Profile(id, type, entity_ids, attributes)
 
-        await self._entity.async_update_entity(type)
-        await self._async_call_service(SERVICE_TURN_ON, self._current_profile.entity_ids, self._current_profile.attributes)
+        self._entity.async_update_entity(type)
+        self._call_service(SERVICE_TURN_ON, self._current_profile.entity_ids, self._current_profile.attributes)
+
+    def _turn_off_unused_entities(self, old_entity_ids, new_entity_ids: List[str]):
+        unused_entities = [entity_id for entity_id in old_entity_ids if entity_id not in new_entity_ids]
+        self._call_service(SERVICE_TURN_OFF, unused_entities)
 
 
     #--------------------------------------------#
