@@ -5,7 +5,7 @@
 from __future__ import annotations
 from homeassistant.helpers.template import Template, is_template_string
 from homeassistant.helpers.event import async_call_later
-from .const import ATTR_BLOCKED_UNTIL, CONF_BLOCK_LIGHTS, CONF_BLOCK_TIMEOUT, CONF_DURATION, CONF_NEW_STATE, CONF_OLD_STATE, DOMAIN, EVENT_AUTOMATIC_LIGHTING, EVENT_TYPE_BLOCK_END, EVENT_TYPE_OVERRIDE, EVENT_TYPE_REFRESH, SERVICE_SCHEMA_TURN_OFF, SERVICE_SCHEMA_TURN_ON, STATE_AMBIANCE, STATE_BLOCKED, STATE_TRIGGERED
+from .const import ATTR_BLOCKED_UNTIL, CONF_BLOCK_LIGHTS, CONF_BLOCK_TIMEOUT, CONF_NEW_STATE, CONF_OLD_STATE, DOMAIN, EVENT_AUTOMATIC_LIGHTING, EVENT_TYPE_REFRESH, SERVICE_SCHEMA_TURN_OFF, SERVICE_SCHEMA_TURN_ON, STATE_AMBIANCE, STATE_BLOCKED, STATE_TRIGGERED
 from .utils import ContextGenerator, ManualControlTracker, Timer
 from datetime import datetime, timedelta
 from homeassistant.components.automation import DOMAIN as AUTOMATION_DOMAIN, EVENT_AUTOMATION_RELOADED
@@ -13,11 +13,10 @@ from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ENTITY_ID, CONF_ID, CONF_LIGHTS, CONF_NAME, CONF_TYPE, EVENT_HOMEASSISTANT_START, EVENT_STATE_CHANGED, SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.core import Context, Event, HomeAssistant, ServiceCall
-from homeassistant.helpers import config_validation as cv, entity_platform
+from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity import Entity
 from logging import Logger, getLogger
-from typing import Any, Callable, Dict, List, Union
-import time
+from typing import Any, Callable, Dict, List
 
 
 #-----------------------------------------------------------#
@@ -146,20 +145,29 @@ class AL_Model():
     #--------------------------------------------#
 
     def __init__(self, hass: HomeAssistant, logger: Logger, config: Dict[str, Any], entity: AL_Entity):
+        self._context = ContextGenerator()
+
+        # ------ Attributes ---------------
+        self._block_until = None
+
+        # ------ Block ---------------
         self._block_lights = config.get(CONF_BLOCK_LIGHTS, [])
         self._block_config_timeout = config.get(CONF_BLOCK_TIMEOUT, 60)
         self._block_timeout = self._block_config_timeout
-        self._block_timer = None
-        self._block_until = None
-        self._context = ContextGenerator()
+
+        # ------ Profiles ---------------
         self._current_profile = None
         self._current_refresh_profile = None
+
+        # ------ Timers ---------------
+        self._block_timer = None
+        self._refresh_throttle_timer = None
+
+
         self._entity = entity
         self._hass = hass
         self._logger = logger
         self._manual_control_tracker = ManualControlTracker(hass, self._context, self._block_lights)
-        self._ambiance_timer = None
-        self._refresh_throttle_timer = None
         self._remove_listeners = []
 
 
@@ -219,7 +227,6 @@ class AL_Model():
             self._block_timer.cancel()
             self._block_timer = None
 
-        await self._async_fire_event(EVENT_AUTOMATIC_LIGHTING, { CONF_ENTITY_ID: self._entity.entity_id, CONF_TYPE: EVENT_TYPE_BLOCK_END })
         await self._async_refresh(True)
 
     async def async_turn_off(self, service_data: Dict[str, Any]) -> None:

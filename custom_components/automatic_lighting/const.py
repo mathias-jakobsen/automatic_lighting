@@ -3,7 +3,7 @@
 #-----------------------------------------------------------#
 
 from homeassistant.components.light import ATTR_BRIGHTNESS, ATTR_BRIGHTNESS_PCT, ATTR_KELVIN, VALID_BRIGHTNESS, VALID_BRIGHTNESS_PCT
-from homeassistant.const import CONF_ENTITY_ID, CONF_ID, CONF_LIGHTS, CONF_TYPE
+from homeassistant.const import CONF_ID, CONF_LIGHTS, CONF_TYPE
 from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 
@@ -27,12 +27,10 @@ CONF_OLD_STATE = "old_state"
 
 # ------ Defaults ---------------
 DEFAULT_BLOCK_LIGHTS = []
-DEFAULT_BLOCK_TIMEOUT = 60
+DEFAULT_BLOCK_TIMEOUT = 300
 
 # ------ Events ---------------
 EVENT_AUTOMATIC_LIGHTING = "automatic_lighting_event"
-EVENT_TYPE_BLOCK_END = "block_end"
-EVENT_TYPE_OVERRIDE = "override"
 EVENT_TYPE_REFRESH = "refresh"
 
 # ------ Attributes ---------------

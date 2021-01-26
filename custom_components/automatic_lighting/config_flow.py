@@ -53,10 +53,14 @@ class AL_ConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_import(self, user_input: Dict[str, Any] = None) -> Dict[str, Any]:
         await self.async_set_unique_id(user_input[CONF_NAME])
+
         for config_entry in self._async_current_entries():
-            if config_entry.unique_id == self.unique_id:
-                self.hass.config_entries.async_update_entry(config_entry, data=user_input)
-                self._abort_if_unique_id_configured()
+            if config_entry.unique_id != self.unique_id:
+                continue
+
+            self.hass.config_entries.async_update_entry(config_entry, data=user_input)
+            self._abort_if_unique_id_configured()
+
         return self.async_create_entry(title=user_input[CONF_NAME], data=user_input)
 
     async def async_step_user(self, user_input: Dict[str, Any] = None) -> Dict[str, Any]:
