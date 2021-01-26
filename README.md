@@ -11,6 +11,12 @@ A Home Assistant custom component that provides a set of events and services to 
 3. Restart Home Assistant.
 4. Go to Configuration -> Integrations to setup an instance of the component.
 
+## Configuration
+This integration can only be configured through the frontend by going to Configuration -> Integrations -> ( + Add Integration ) -> Automatic Lighting. To access the options, click the 'Options' button under your newly created integration.
+
+| Option | Description | Default | Type |
+| ------ | ----------- | ------- | ---- |
+
 ## Tasks
 - [ ] Refactor code.
 - [ ] Automatic discovery of which entities to track regarding the blocking feature.
