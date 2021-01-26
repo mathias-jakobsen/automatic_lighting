@@ -7,15 +7,17 @@ A Home Assistant custom component that provides a set of events and services to 
 
 ## Install
 1. Add https://github.com/mathias-jakobsen/automatic_lighting.git to HACS as an integration.
-2. Install the component as an integration through HACS.
+2. Install the component through HACS.
 3. Restart Home Assistant.
-4. Go to Configuration -> Integrations to setup an instance of the component.
 
 ## Configuration
-This integration can only be configured through the frontend by going to Configuration -> Integrations -> ( + Add Integration ) -> Automatic Lighting. To access the options, click the 'Options' button under your newly created integration.
+This integration can only be configured through the frontend by going to Configuration -> Integrations -> ( + Add Integration ) -> Automatic Lighting. To access the options, click the 'Options' button under your newly added integration.
 
-| Option | Description | Default | Type |
-| ------ | ----------- | ------- | ---- |
+### Options
+| Name | Description | Default | Type |
+| ---- | ----------- | ------- | ---- |
+| block_lights | The lights to track for manual control. | [] | list |
+| block_timeout | The time (in seconds) the integration is blocked. | 300 | int 
 
 ## Tasks
 - [ ] Refactor code.
