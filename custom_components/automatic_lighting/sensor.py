@@ -146,6 +146,9 @@ class AL_Model():
 
     def __init__(self, hass: HomeAssistant, logger: Logger, config: Dict[str, Any], entity: AL_Entity):
         self._context = ContextGenerator()
+        self._entity = entity
+        self._hass = hass
+        self._logger = logger
 
         # ------ Attributes ---------------
         self._block_until = None
@@ -164,9 +167,7 @@ class AL_Model():
         self._refresh_throttle_timer = None
 
 
-        self._entity = entity
-        self._hass = hass
-        self._logger = logger
+
         self._manual_control_tracker = ManualControlTracker(hass, self._context, self._block_lights)
         self._remove_listeners = []
 
