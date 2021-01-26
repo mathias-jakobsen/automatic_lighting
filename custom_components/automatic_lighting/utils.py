@@ -9,7 +9,9 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_call_later
 from homeassistant.util import get_random_string
 from typing import Any, Callable, Dict, List, Union
+from logging import getLogger
 
+logger = getLogger(__name__)
 
 #-----------------------------------------------------------#
 #       Context
@@ -49,17 +51,12 @@ class ManualControlTracker:
         self._entity_ids = entity_ids
         self._hass = hass
         self._listeners = []
-        self._remove_listener = hass.bus.async_listen(EVENT_CALL_SERVICE, self._async_on_service_call)
+        self._remove_listener = None
 
 
     #--------------------------------------------#
     #       Methods
     #--------------------------------------------#
-
-    def destroy(self) -> None:
-        self._listeners = []
-        self._remove_listener()
-        self._remove_listener = None
 
     def listen(self, listener: Callable[[List[str], Context], None]) -> Callable[[None], None]:
         def remove_listener():
@@ -68,12 +65,27 @@ class ManualControlTracker:
         self._listeners.append(listener)
         return remove_listener
 
+    def start(self) -> None:
+        if self._remove_listener:
+            return
+
+        self._remove_listener = self._hass.bus.async_listen(EVENT_CALL_SERVICE, self._on_service_call)
+
+    def stop(self, clear_listeners: bool = False) -> None:
+        self._listeners = []
+
+        if not self._remove_listener:
+            return
+
+        self._remove_listener()
+        self._remove_listener = None
+
 
     #--------------------------------------------#
     #       Event Handlers
     #--------------------------------------------#
 
-    async def _async_on_service_call(self, event: Event) -> None:
+    def _on_service_call(self, event: Event) -> None:
         domain = event.data.get(ATTR_DOMAIN, "")
 
         if domain != LIGHT_DOMAIN:
@@ -89,7 +101,48 @@ class ManualControlTracker:
             return
 
         for listener in self._listeners:
-            await listener(entity_ids, event.context)
+            listener(entity_ids, event.context)
+
+
+#-----------------------------------------------------------#
+#       Profile
+#-----------------------------------------------------------#
+
+class Profile:
+    #-----------------------------------------------#
+    #     Constructor                               #
+    #-----------------------------------------------#
+
+    def __init__(self, id: str, type: str, entity_ids: List[str], attributes: Dict[str, Any]):
+        self._id = id
+        self._type = type
+        self._entity_ids = entity_ids
+        self._attributes = attributes
+
+
+    #-----------------------------------------------#
+    #     Properties                                #
+    #-----------------------------------------------#
+
+    @property
+    def attributes(self) -> Dict[str, Any]:
+        """ Returns the attributes. """
+        return self._attributes
+
+    @property
+    def entity_ids(self) -> List[str]:
+        """ Returns the entity ids. """
+        return self._entity_ids
+
+    @property
+    def id(self) -> str:
+        """ Returns the id. """
+        return self._id
+
+    @property
+    def type(self) -> str:
+        """ Returns the id. """
+        return self._type
 
 
 #-----------------------------------------------------------#
@@ -139,7 +192,7 @@ class Timer():
         if self.is_running or self._delay is None:
             return
         self._remove_listener and self._remove_listener()
-        self._remove_listener = async_call_later(self._hass, self._delay, self._async_on_timer_finished)
+        self._remove_listener = async_call_later(self._hass, self._delay, self._on_timer_finished)
 
     def restart(self) -> None:
         """ Restarts the timer. """
@@ -151,7 +204,7 @@ class Timer():
     #     Event Handlers                            #
     #-----------------------------------------------#
 
-    async def _async_on_timer_finished(self, _):
+    def _on_timer_finished(self, _):
         """ Triggered when the timer has finished. """
         self._remove_listener = None
-        await self._action()
+        self._action()
