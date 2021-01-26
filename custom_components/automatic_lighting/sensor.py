@@ -396,7 +396,7 @@ class AL_Model():
         if self.is_refreshing:
             self._refresh_timer.cancel()
         else:
-            self._logger.debug(f"Firing refresh events.")
+            self._logger.debug(f"Firing refresh event.")
             self._refresh_profile = None
             self._fire_event(EVENT_AUTOMATIC_LIGHTING, { CONF_ENTITY_ID: self._entity.entity_id, CONF_TYPE: EVENT_TYPE_REFRESH })
 
