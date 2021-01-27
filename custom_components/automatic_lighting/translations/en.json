@@ -17,12 +17,11 @@
     "options": {
         "step": {
             "init": {
-                "title": "Automatic Lighting Options",
-                "description": "From here you can configure the 'Automatic Lighting' integration.",
+                "title": "Automatic Lighting - Options",
+                "description": "From here you can configure the blocking settings of the integration. To disable the blocking feature, deselect the tracked lights below.",
                 "data": {
-                    "block_enabled": "Enable automatic blocking.",
-                    "block_lights": "The lights to track",
-                    "block_timeout": "Timeout period (in seconds)"
+                    "block_lights": "The lights to track for manual control",
+                    "block_timeout": "The time (in seconds) the integration is blocked"
                 }
             }
         }

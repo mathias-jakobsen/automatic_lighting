@@ -3,4 +3,4 @@
 !/custom_components
 !hacs.json
 !README.md
-/custom_components/automatic_lighting/__pycache__
+/custom_components/**/__pycache__

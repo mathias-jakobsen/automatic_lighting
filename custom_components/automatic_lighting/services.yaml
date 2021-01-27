@@ -1,0 +1,31 @@
+turn_off:
+  description: Turns off the lights through the integration.
+  fields:
+    entity_id:
+      description: The entity id of the Automatic Lighting entity.
+      example: sensor.automatic_lighting_entity
+    lights:
+      description: The entity ids of the lights to turn on. Can be a string, list or dict.
+      example: [light.entity_1, light.entity_2]
+
+turn_on:
+  description: Turns on the lights through the integration.
+  fields:
+    entity_id:
+      description: The entity id of the Automatic Lighting entity.
+      example: sensor.automatic_lighting_entity
+    type:
+      description: The type of the turn on call. Can be set to either ambiance or triggered.
+      example: triggered
+    lights:
+      description: The entity ids of the lights to turn on. Can be a string, list or dict.
+      example: [light.entity_1, light.entity_2]
+    brightness:
+      description: Number between 0..255 indicating brightness, where 0 turns the light off, 1 is the minimum brightness and 255 is the maximum brightness supported by the light.
+      example: 100
+    brightness_pct:
+      description: Number between 0..100 indicating percentage of full brightness, where 0 turns the light off, 1 is the minimum brightness and 100 is the maximum brightness supported by the light.
+      example: 25
+    kelvin:
+      description: Color temperature for the light in Kelvin.
+      example: 3000

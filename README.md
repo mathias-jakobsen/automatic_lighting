@@ -1,6 +1,13 @@
 # Automatic Lighting
 A Home Assistant custom component that provides a set of events and services to facilitate more advanced lighting setups with Home Assistant's default automation and blueprint engine.
 
+## Blueprints
+Ambient Lighting:\
+https://raw.githubusercontent.com/mathias-jakobsen/automatic_lighting/dev/blueprints/automation/al_ambient_lighting.yaml
+
+Triggered Lighting:\
+https://raw.githubusercontent.com/mathias-jakobsen/automatic_lighting/dev/blueprints/automation/al_triggered_lighting.yaml
+
 ## Features
 - Provides events and services to set ambient and triggered lighting through Home Assistant automations and blueprints.
 - Detects manual control of lights, blocking itself for a set time period to prevent unwanted interference.
@@ -17,10 +24,10 @@ This integration can only be configured through the frontend by going to Configu
 | Name | Description | Default | Type |
 | ---- | ----------- | ------- | ---- |
 | block_lights | The lights to track for manual control. | [] | list |
-| block_timeout | The time (in seconds) the integration is blocked. | 300 | int 
+| block_timeout | The time (in seconds) the integration is blocked. | 300 | int
 
 ## Tasks
-- [ ] Refactor code.
+- [x] Refactor code.
 - [ ] Automatic discovery of which entities to track regarding the blocking feature.
 - [ ] Blocking of individual lights.
 - [ ] Create blueprints to provide Adaptive Lighting functionality.

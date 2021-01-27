@@ -2,9 +2,8 @@
 #       Imports
 #-----------------------------------------------------------#
 
-from .const import CONFIG_SCHEMA, DOMAIN, PLATFORMS, UNDO_UPDATE_LISTENER
-from homeassistant.config_entries import ConfigEntry, SOURCE_IMPORT
-from homeassistant.const import CONF_SOURCE
+from .const import DOMAIN, PLATFORMS, UNDO_UPDATE_LISTENER
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from typing import Any, Dict
 
@@ -14,9 +13,6 @@ from typing import Any, Dict
 #-----------------------------------------------------------#
 
 async def async_setup(hass: HomeAssistant, config: Dict[str, Any]) -> bool:
-    if DOMAIN in config:
-        for entry in config[DOMAIN]:
-            hass.async_create_task(hass.config_entries.flow.async_init(DOMAIN, context={ CONF_SOURCE: SOURCE_IMPORT }, data=entry))
     return True
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
