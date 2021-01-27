@@ -9,9 +9,47 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_call_later
 from homeassistant.util import get_random_string
 from typing import Any, Callable, Dict, List, Union
-from logging import getLogger
 
-logger = getLogger(__name__)
+
+#-----------------------------------------------------------#
+#       Functions
+#-----------------------------------------------------------#
+
+async def async_resolve_entity_id_argument(hass: HomeAssistant, argument: Union[str, List[str], Dict[str, Any]]) -> List[str]:
+    """ Resolves the entity_id argument passed in a service call. """
+    if isinstance(argument, str):
+        return argument.strip().split(",")
+
+    if isinstance(argument, list):
+        return argument
+
+    result = []
+
+    entity_registry = await hass.helpers.entity_registry.async_get_registry()
+    entity_entries = entity_registry.entities.values()
+
+    target_areas = argument.get("area_id", [])
+    target_devices = argument.get("device_id", [])
+    target_entities = argument.get("entity_id", [])
+
+    for entity in entity_entries:
+        if entity.disabled:
+            continue
+
+        if entity.entity_id in target_entities:
+            result.append(entity.entity_id)
+            continue
+
+        if entity.device_id is not None and entity.device_id in target_devices:
+            result.append(entity.entity_id)
+            continue
+
+        if entity.area_id is not None and entity.area_id in target_areas:
+            result.append(entity.entity_id)
+            continue
+
+    return result
+
 
 #-----------------------------------------------------------#
 #       Context
@@ -85,14 +123,14 @@ class ManualControlTracker:
     #       Event Handlers
     #--------------------------------------------#
 
-    def _on_service_call(self, event: Event) -> None:
+    async def _on_service_call(self, event: Event) -> None:
         domain = event.data.get(ATTR_DOMAIN, "")
 
         if domain != LIGHT_DOMAIN:
             return
 
         service_data = event.data.get(ATTR_SERVICE_DATA)
-        entity_ids = [entity_id for entity_id in cv.ensure_list_csv(service_data[ATTR_ENTITY_ID]) if entity_id in self._entity_ids]
+        entity_ids = [entity_id for entity_id in (await async_resolve_entity_id_argument(self._hass, service_data[ATTR_ENTITY_ID])) if entity_id in self._entity_ids]
 
         if len(entity_ids) == 0:
             return

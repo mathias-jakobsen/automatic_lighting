@@ -3,8 +3,7 @@
 #-----------------------------------------------------------#
 
 from .const import DOMAIN, PLATFORMS, UNDO_UPDATE_LISTENER
-from homeassistant.config_entries import ConfigEntry, SOURCE_IMPORT
-from homeassistant.const import CONF_SOURCE
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from typing import Any, Dict
 

@@ -29,6 +29,24 @@ blueprint:
       default: "23:59:59"
       selector:
         time:
+    illuminance_entity:
+      name: Daylight Sensor
+      description: The entity that measures the amount of daylight.
+      default: ""
+      selector:
+        entity:
+          domain: sensor
+          device_class: illuminance
+    illuminance_max:
+      name: Max Daylight Value
+      description: The maximum amount of daylight allowed.
+      default: 100
+      selector:
+        number:
+          mode: box
+          min: 1
+          max: 100000
+          unit_of_measurement: lx
     brightness:
       name: Brightness
       description: The brightness (in %) that the lights should be set to when turned on.
@@ -55,6 +73,10 @@ blueprint:
 max_exceeded: silent
 mode: restart
 
+variables:
+  illuminance_entity: !input illuminance_entity
+  illuminance_max: !input illuminance_max
+
 trigger:
   - platform: event
     event_type: automation_reloaded
@@ -63,10 +85,17 @@ trigger:
     event_data:
       entity_id: !input al_entity
       type: refresh
+  - platform: time
+    at: !input time_after
+  - platform: state
+    entity_id: !input illuminance_entity
 condition:
   - condition: time
     after: !input time_after
     before: !input time_before
+  - condition: numeric_state
+    entity_id: !input illuminance_entity
+    below: !input illuminance_max
 action:
   - variables:
       id: >-
@@ -83,3 +112,13 @@ action:
       lights: !input lights
       brightness: !input brightness
       kelvin: !input color_temp
+  - wait_for_trigger:
+      - platform: time
+        at: !input time_before
+      - platform: numeric_state
+        entity_id: !input illuminance_entity
+        above: !input illuminance_max
+  - service: automatic_lighting.turn_off
+    data:
+      entity_id: !input al_entity
+      id: "{{ id }}"

@@ -6,7 +6,7 @@ from __future__ import annotations
 from homeassistant.helpers.template import Template, is_template_string
 from homeassistant.helpers.event import async_call_later
 from .const import ATTR_BLOCKED_UNTIL, CONF_BLOCK_LIGHTS, CONF_BLOCK_TIMEOUT, CONF_NEW_STATE, CONF_OLD_STATE, EVENT_AUTOMATIC_LIGHTING, EVENT_TYPE_REFRESH, SERVICE_SCHEMA_TURN_OFF, SERVICE_SCHEMA_TURN_ON, STATE_AMBIANCE, STATE_BLOCKED, STATE_TRIGGERED
-from .utils import ContextGenerator, ManualControlTracker, Profile, Timer
+from .utils import ContextGenerator, ManualControlTracker, Profile, Timer, async_resolve_entity_id_argument
 from datetime import datetime, timedelta
 from homeassistant.components.automation import DOMAIN as AUTOMATION_DOMAIN, EVENT_AUTOMATION_RELOADED
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
@@ -238,7 +238,7 @@ class AL_Model():
 
     async def async_turn_on(self, service_data: Dict[str, Any]) -> None:
         id = service_data.pop(CONF_ID)
-        entity_ids = await self._async_resolve_entity_dict(service_data.pop(CONF_LIGHTS, {}))
+        entity_ids = await async_resolve_entity_id_argument(self._hass, service_data.pop(CONF_LIGHTS, {}))
         type = service_data.pop(CONF_TYPE)
         attributes = service_data
 
@@ -247,6 +247,9 @@ class AL_Model():
                 return
 
             self._refresh_profile = Profile(id, type, entity_ids, attributes)
+            return
+
+        if self._entity.state == STATE_TRIGGERED and type == STATE_AMBIANCE:
             return
 
         if self.is_blocked:
@@ -330,35 +333,6 @@ class AL_Model():
     #       Private Methods
     #--------------------------------------------#
 
-    async def _async_resolve_entity_dict(self, entity_dict: Dict[str, Any]) -> List[str]:
-        """ Resolves the entity_id (target) dict argument passed in a service call. """
-        result = []
-
-        entity_registry = await self._hass.helpers.entity_registry.async_get_registry()
-        entity_entries = entity_registry.entities.values()
-
-        target_areas = entity_dict.get("area_id", [])
-        target_devices = entity_dict.get("device_id", [])
-        target_entities = entity_dict.get("entity_id", [])
-
-        for entity in entity_entries:
-            if entity.disabled:
-                continue
-
-            if entity.entity_id in target_entities:
-                result.append(entity.entity_id)
-                continue
-
-            if entity.device_id is not None and entity.device_id in target_devices:
-                result.append(entity.entity_id)
-                continue
-
-            if entity.area_id is not None and entity.area_id in target_areas:
-                result.append(entity.entity_id)
-                continue
-
-        return result
-
     def _fire_event(self, event_type: str, event_data: Dict[str, Any]) -> None:
         """ Fires an event. """
         context = self._context.generate()
@@ -391,7 +365,7 @@ class AL_Model():
 
         return result
 
-    def _refresh(self, bypass_block: bool = False):
+    def _refresh(self, bypass_block: bool = False) -> None:
         """ Refreshes the model and entity. """
         if self.is_refreshing:
             self._refresh_timer.cancel()
@@ -422,7 +396,7 @@ class AL_Model():
 
         self._refresh_timer = Timer(self._hass, REFRESH_DEBOUNCE_TIME / 1000, refresh)
 
-    def _turn_off_unused_entities(self, old_entity_ids, new_entity_ids: List[str]):
+    def _turn_off_unused_entities(self, old_entity_ids: List[str], new_entity_ids: List[str]) -> None:
         """ Turns off entities if they are not used in the current profile. """
         unused_entities = [entity_id for entity_id in old_entity_ids if entity_id not in new_entity_ids]
         self._call_service(SERVICE_TURN_OFF, unused_entities)

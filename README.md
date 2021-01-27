@@ -17,10 +17,10 @@ This integration can only be configured through the frontend by going to Configu
 | Name | Description | Default | Type |
 | ---- | ----------- | ------- | ---- |
 | block_lights | The lights to track for manual control. | [] | list |
-| block_timeout | The time (in seconds) the integration is blocked. | 300 | int 
+| block_timeout | The time (in seconds) the integration is blocked. | 300 | int
 
 ## Tasks
-- [ ] Refactor code.
+- [x] Refactor code.
 - [ ] Automatic discovery of which entities to track regarding the blocking feature.
 - [ ] Blocking of individual lights.
 - [ ] Create blueprints to provide Adaptive Lighting functionality.

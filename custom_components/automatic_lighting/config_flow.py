@@ -95,7 +95,7 @@ class AL_OptionsFlow(OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        light_entity_ids = self.hass.states.async_entity_ids(domain_filter=LIGHT_DOMAIN)
+        light_entity_ids = sorted(self.hass.states.async_entity_ids(domain_filter=LIGHT_DOMAIN))
         schema = vol.Schema({
             vol.Required(CONF_BLOCK_LIGHTS, default=self._data.get(CONF_BLOCK_LIGHTS, DEFAULT_BLOCK_LIGHTS)): cv.multi_select(light_entity_ids),
             vol.Required(CONF_BLOCK_TIMEOUT, default=self._data.get(CONF_BLOCK_TIMEOUT, DEFAULT_BLOCK_TIMEOUT)): vol.All(int, vol.Range(min=0))
