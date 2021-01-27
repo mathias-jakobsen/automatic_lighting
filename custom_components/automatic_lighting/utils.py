@@ -3,13 +3,14 @@
 #-----------------------------------------------------------#
 
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.const import ATTR_DOMAIN, ATTR_ENTITY_ID, ATTR_SERVICE_DATA, EVENT_CALL_SERVICE
+from homeassistant.const import ATTR_DOMAIN, ATTR_SERVICE_DATA, EVENT_CALL_SERVICE
 from homeassistant.core import Context, Event, HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_call_later
 from homeassistant.util import get_random_string
 from typing import Any, Callable, Dict, List, Union
-
+from logging import getLogger
+logger = getLogger(__name__)
 
 #-----------------------------------------------------------#
 #       Functions
@@ -130,7 +131,7 @@ class ManualControlTracker:
             return
 
         service_data = event.data.get(ATTR_SERVICE_DATA)
-        entity_ids = [entity_id for entity_id in (await async_resolve_entity_id_argument(self._hass, service_data[ATTR_ENTITY_ID])) if entity_id in self._entity_ids]
+        entity_ids = [entity_id for entity_id in (await async_resolve_entity_id_argument(self._hass, service_data)) if entity_id in self._entity_ids]
 
         if len(entity_ids) == 0:
             return
