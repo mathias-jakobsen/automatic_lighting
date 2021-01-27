@@ -1,5 +1,5 @@
 blueprint:
-  name: AL - Ambiance Lighting (Brightness & Color Temperature)
+  name: AL - Ambient Lighting
   description: |
     Uses the 'Automatic Lighting' integration to create a profile that will turn on lighting when no trigger is triggered.
   domain: automation
@@ -90,12 +90,12 @@ trigger:
   - platform: state
     entity_id: !input illuminance_entity
 condition:
-  - condition: time
-    after: !input time_after
-    before: !input time_before
   - condition: numeric_state
     entity_id: !input illuminance_entity
     below: !input illuminance_max
+  - condition: time
+    after: !input time_after
+    before: !input time_before
 action:
   - variables:
       id: >-
@@ -115,9 +115,8 @@ action:
   - wait_for_trigger:
       - platform: time
         at: !input time_before
-      - platform: numeric_state
-        entity_id: !input illuminance_entity
-        above: !input illuminance_max
+      - platform: template
+        value_template: "{{ False if illuminance_entity == '' else states(illuminance_entity)|float > illuminance_max|float }}"
   - service: automatic_lighting.turn_off
     data:
       entity_id: !input al_entity

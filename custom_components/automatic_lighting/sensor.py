@@ -3,10 +3,8 @@
 #-----------------------------------------------------------#
 
 from __future__ import annotations
-from homeassistant.helpers.template import Template, is_template_string
-from homeassistant.helpers.event import async_call_later
 from .const import ATTR_BLOCKED_UNTIL, CONF_BLOCK_LIGHTS, CONF_BLOCK_TIMEOUT, CONF_NEW_STATE, CONF_OLD_STATE, EVENT_AUTOMATIC_LIGHTING, EVENT_TYPE_REFRESH, SERVICE_SCHEMA_TURN_OFF, SERVICE_SCHEMA_TURN_ON, STATE_AMBIANCE, STATE_BLOCKED, STATE_TRIGGERED
-from .utils import ContextGenerator, ManualControlTracker, Profile, Timer, async_resolve_entity_id_argument
+from .utils import EntityModel, Timer, async_resolve_target, async_track_manual_control
 from datetime import datetime, timedelta
 from homeassistant.components.automation import DOMAIN as AUTOMATION_DOMAIN, EVENT_AUTOMATION_RELOADED
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
@@ -15,6 +13,7 @@ from homeassistant.const import CONF_ENTITY_ID, CONF_ID, CONF_LIGHTS, CONF_NAME,
 from homeassistant.core import Context, Event, HomeAssistant, ServiceCall
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.event import async_call_later
 from logging import Logger, getLogger
 from typing import Any, Callable, Dict, List
 
@@ -23,8 +22,8 @@ from typing import Any, Callable, Dict, List
 #       Constants
 #-----------------------------------------------------------#
 
-REFRESH_DEBOUNCE_TIME = 200
-START_DELAY = 500
+REFRESH_DEBOUNCE_TIME = 0.2
+START_DELAY = 0.5
 
 
 #-----------------------------------------------------------#
@@ -46,12 +45,12 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 async def async_service_turn_off(entity: AL_Entity, service_call: ServiceCall) -> None:
     data = { **service_call.data }
     data.pop(CONF_ENTITY_ID)
-    return await entity.model.async_turn_off(data)
+    return await entity.model.async_service_turn_off(data)
 
 async def async_service_turn_on(entity: AL_Entity, service_call: ServiceCall) -> None:
     data = { **service_call.data }
     data.pop(CONF_ENTITY_ID)
-    return await entity.model.async_turn_on(data)
+    return await entity.model.async_service_turn_on(data)
 
 
 #-----------------------------------------------------------#
@@ -59,6 +58,7 @@ async def async_service_turn_on(entity: AL_Entity, service_call: ServiceCall) ->
 #-----------------------------------------------------------#
 
 class AL_Entity(Entity):
+    """ The entity that is created by the integration. """
     #--------------------------------------------#
     #       Constructor
     #--------------------------------------------#
@@ -129,32 +129,30 @@ class AL_Entity(Entity):
     async def async_added_to_hass(self) -> None:
         """ Triggered when the entity has been added to Home Assistant. """
         self._logger = getLogger(f"{__name__}.{self.entity_id.split('.')[1]}")
-        self._model = AL_Model(self.hass, self._logger, self._config, self)
+        self._model = AL_Model(self.hass, self._logger, self, self._config)
 
         if self.hass.is_running:
-            self._model.initialize()
+            await self._model.async_turn_on()
         else:
-            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, self._model.initialize)
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, self._model.async_turn_on)
 
     async def async_will_remove_from_hass(self) -> None:
         """ Triggered when the entity is being removed from Home Assistant. """
-        self._model.destroy()
+        await self._model.async_turn_off()
 
 
 #-----------------------------------------------------------#
 #       AL_Model
 #-----------------------------------------------------------#
 
-class AL_Model():
+class AL_Model(EntityModel[AL_Entity]):
+    """ An entity model that handles the logic of the integration. """
     #--------------------------------------------#
     #       Constructor
     #--------------------------------------------#
 
-    def __init__(self, hass: HomeAssistant, logger: Logger, config: Dict[str, Any], entity: AL_Entity):
-        self._context = ContextGenerator()
-        self._entity = entity
-        self._hass = hass
-        self._logger = logger
+    def __init__(self, hass: HomeAssistant, logger: Logger, entity: AL_Entity, config: Dict[str, Any]):
+        super().__init__(hass, logger, entity)
 
         # ------ Attributes ---------------
         self._block_until = None
@@ -170,7 +168,6 @@ class AL_Model():
 
         # ------ Listeners & Timers ---------------
         self._block_timer = None
-        self._manual_control_tracker = ManualControlTracker(hass, self._context, self._block_lights)
         self._refresh_timer = None
         self._remove_listeners = []
 
@@ -181,50 +178,49 @@ class AL_Model():
 
     @property
     def is_blocked(self) -> bool:
-        """ Gets a boolean indicating whether the entity is blocked. """
-        return self._block_timer is not None
+        """ Gets a boolean indicating whether the entity model is blocked. """
+        return self.entity.state == STATE_BLOCKED
 
     @property
-    def is_initialized(self) -> bool:
-        """ Gets a boolean indicating whether the entity has been initialized. """
+    def is_on(self) -> bool:
+        """ Gets a boolean indicating whether the entity model is turned on. """
         return len(self._remove_listeners) > 0
 
     @property
     def is_refreshing(self) -> bool:
-        """ Gets a boolean indicating whether the entity is refreshing. """
+        """ Gets a boolean indicating whether the entity model is currently refreshing. """
         return self._refresh_timer is not None and self._refresh_timer.is_running
 
 
     #--------------------------------------------#
-    #       Methods - Start/Stop
+    #       Init Methods
     #--------------------------------------------#
 
-    def destroy(self) -> None:
-        """ Destroys the model, removing all event listeners. """
+    async def async_turn_off(self, *args: Any) -> None:
+        """ Turns off the model. """
         while self._remove_listeners:
             self._remove_listeners.pop()()
 
         self._block_timer and self._block_timer.cancel()
-        self._manual_control_tracker.stop(True)
         self._refresh_timer and self._refresh_timer.cancel()
 
-    def initialize(self, _ = None) -> None:
-        """ Starts the model, initializing event listeners. """
-        if self.is_initialized:
-            self.destroy()
+    async def async_turn_on(self, *args: Any) -> None:
+        """ Turns on the model. """
+        if self.is_on:
+            return
 
-        self._manual_control_tracker.start()
-        self._remove_listeners.append(self._manual_control_tracker.listen(self._on_manual_control))
+        self._remove_listeners.append(async_track_manual_control(self.hass, self._block_lights, self._on_manual_control, self.is_context_internal))
         self._remove_listeners.append(self._hass.bus.async_listen(EVENT_AUTOMATION_RELOADED, self._on_automations_reloaded))
         self._remove_listeners.append(self._hass.bus.async_listen(EVENT_STATE_CHANGED, self._on_automation_state_change))
-        self._remove_listeners.append(async_call_later(self._hass, START_DELAY / 1000, self._refresh))
+        self._remove_listeners.append(async_call_later(self._hass, START_DELAY, self._refresh))
 
 
     #--------------------------------------------#
-    #       Methods - Turn Off/On
+    #       Service Methods (Turn On/Off)
     #--------------------------------------------#
 
-    async def async_turn_off(self, service_data: Dict[str, Any]) -> None:
+    async def async_service_turn_off(self, service_data: Dict[str, Any]) -> None:
+        """ Handles a service call to automatic_lighting.turn_off. """
         if self.is_blocked:
             return
 
@@ -236,9 +232,10 @@ class AL_Model():
 
         self._refresh()
 
-    async def async_turn_on(self, service_data: Dict[str, Any]) -> None:
+    async def async_service_turn_on(self, service_data: Dict[str, Any]) -> None:
+        """ Handles a service call to automatic_lighting.turn_on. """
         id = service_data.pop(CONF_ID)
-        entity_ids = await async_resolve_entity_id_argument(self._hass, service_data.pop(CONF_LIGHTS, {}))
+        entity_ids = await async_resolve_target(self._hass, service_data.pop(CONF_LIGHTS, {}))
         type = service_data.pop(CONF_TYPE)
         attributes = service_data
 
@@ -246,48 +243,46 @@ class AL_Model():
             if self._refresh_profile and type == STATE_AMBIANCE and self._refresh_profile.type == STATE_TRIGGERED:
                 return
 
-            self._refresh_profile = Profile(id, type, entity_ids, attributes)
+            self._refresh_profile = AL_Lighting_Profile(id, type, entity_ids, attributes)
             return
 
-        if self._entity.state == STATE_TRIGGERED and type == STATE_AMBIANCE:
+        if self.entity.state == STATE_TRIGGERED and type == STATE_AMBIANCE:
             return
 
         if self.is_blocked:
-            return self.block(self._block_config_timeout)
+            return self.block(self._block_timeout)
 
         if self._current_profile:
             self._turn_off_unused_entities(self._current_profile.entity_ids, entity_ids)
 
-        self._current_profile = Profile(id, type, entity_ids, attributes)
-        self._entity.update_entity(type)
-        self._call_service(SERVICE_TURN_ON, self._current_profile.entity_ids, self._current_profile.attributes)
+        self._current_profile = AL_Lighting_Profile(id, type, entity_ids, attributes)
+        self.entity.update_entity(type, lights=entity_ids, **attributes)
+        self.call_service(LIGHT_DOMAIN, SERVICE_TURN_ON, entity_id=entity_ids, **attributes)
 
 
     #--------------------------------------------#
-    #       Methods - Blocking
+    #       Blocking Methods
     #--------------------------------------------#
 
     def block(self, timeout: int) -> None:
-        """ Blocks the entity for a time period. """
+        """ Blocks the model for a time period. """
         self._logger.debug(f"Blocking for {self._block_timeout} seconds.")
 
-        if self._block_timer:
+        if self.is_blocked:
             self._block_timer.cancel()
 
         self._block_timeout = timeout
         self._blocked_until = datetime.now() + timedelta(seconds=self._block_timeout)
-        self._block_timer = Timer(self._hass, timeout, self.unblock)
-
+        self._block_timer = Timer(self.hass, self._block_timeout, self.unblock)
         self._entity.update_entity(state=STATE_BLOCKED, **{ ATTR_BLOCKED_UNTIL: self._blocked_until })
 
     def unblock(self, _ = None) -> None:
-        """ Unblocks the entity """
+        """ Unblocks the model """
         if not self.is_blocked:
             return
 
         self._logger.debug(f"Unblocking after {self._block_timeout} seconds of inactivity.")
         self._block_timer.cancel()
-        self._block_timer = None
         self._refresh(True)
 
 
@@ -322,81 +317,83 @@ class AL_Model():
     def _on_manual_control(self, entity_ids: List[str], context: Context) -> None:
         """ Triggered when manual control is detected. """
         self._logger.debug(f"Detected manual control of following entities: {entity_ids}")
-
-        if self.is_blocked:
-            self.block(self._block_timeout)
-        else:
-            self.block(self._block_config_timeout)
+        self.block(self._block_timeout if self.is_blocked else self._block_config_timeout)
 
 
     #--------------------------------------------#
     #       Private Methods
     #--------------------------------------------#
 
-    def _fire_event(self, event_type: str, event_data: Dict[str, Any]) -> None:
-        """ Fires an event. """
-        context = self._context.generate()
-        self._entity.async_set_context(context)
-        self._hass.bus.async_fire(event_type, event_data, context=context)
-
-    def _call_service(self, service: str, entity_ids: List[str], service_data: Dict[str, Any] = {}) -> None:
-        """ Calls a light service with the provided service data. """
-        self._logger.debug(f"Calling {LIGHT_DOMAIN}.{service} with following service data: {service_data}")
-        parsed_service_data = self._parse_service_data(service_data)
-        self._hass.async_create_task(
-            self._hass.services.async_call(LIGHT_DOMAIN, service, { CONF_ENTITY_ID: entity_ids, **parsed_service_data }, context=self._context.generate())
-        )
-
-    def _parse_service_data(self, service_data: Dict[str, Any]) -> Dict[str, Any]:
-        """ Parses the provided service data. """
-        result = {}
-
-        for key, value in service_data.items():
-            if isinstance(value, str) and is_template_string(value):
-                try:
-                    template = Template(value, self._hass)
-                    result[key] = template.async_render()
-                except Exception as e:
-                    self._logger.warn(f"[{self._name}] Ignoring attribute {key}. Invalid template was given -> {value}.")
-                    self._logger.warn(e)
-                    continue
-            else:
-                result[key] = value
-
-        return result
-
     def _refresh(self, bypass_block: bool = False) -> None:
-        """ Refreshes the model and entity. """
+        """ Refreshes the model. """
         if self.is_refreshing:
             self._refresh_timer.cancel()
         else:
-            self._logger.debug(f"Firing refresh event.")
             self._refresh_profile = None
-            self._fire_event(EVENT_AUTOMATIC_LIGHTING, { CONF_ENTITY_ID: self._entity.entity_id, CONF_TYPE: EVENT_TYPE_REFRESH })
+            self.fire_event(EVENT_AUTOMATIC_LIGHTING, entity_id=self._entity.entity_id, type=EVENT_TYPE_REFRESH)
 
         def refresh():
-            self._logger.debug(f"Refresh ended.")
-
             if self.is_blocked and not bypass_block:
                 return
 
             if self._refresh_profile:
-                if not self._entity.state == self._refresh_profile.type:
-                    self._entity.update_entity(self._refresh_profile.type)
-
                 if self._current_profile and (not self.is_blocked or (self.is_blocked and bypass_block)):
                     self._turn_off_unused_entities(self._current_profile.entity_ids, self._refresh_profile.entity_ids)
 
                 self._current_profile = self._refresh_profile
-                return self._call_service(SERVICE_TURN_ON, self._current_profile.entity_ids, self._current_profile.attributes)
-            elif self._current_profile:
-                self._call_service(SERVICE_TURN_OFF, self._current_profile.entity_ids)
+                self.entity.update_entity(self._refresh_profile.type, lights=self._current_profile.entity_ids, **self._current_profile.attributes)
+                return self.call_service(LIGHT_DOMAIN, SERVICE_TURN_ON, entity_id=self._current_profile.entity_ids, **self._current_profile.attributes)
 
-            self._entity.update_entity(STATE_AMBIANCE)
+            if self._current_profile:
+                self.call_service(LIGHT_DOMAIN, SERVICE_TURN_OFF, entity_id=self._current_profile.entity_ids)
 
-        self._refresh_timer = Timer(self._hass, REFRESH_DEBOUNCE_TIME / 1000, refresh)
+            self.entity.update_entity(STATE_AMBIANCE)
+
+        self._refresh_timer = Timer(self.hass, REFRESH_DEBOUNCE_TIME, refresh)
 
     def _turn_off_unused_entities(self, old_entity_ids: List[str], new_entity_ids: List[str]) -> None:
         """ Turns off entities if they are not used in the current profile. """
         unused_entities = [entity_id for entity_id in old_entity_ids if entity_id not in new_entity_ids]
-        self._call_service(SERVICE_TURN_OFF, unused_entities)
+        self.call_service(LIGHT_DOMAIN, SERVICE_TURN_OFF, entity_id=unused_entities)
+
+
+#-----------------------------------------------------------#
+#       AL_Lighting_Profile
+#-----------------------------------------------------------#
+
+class AL_Lighting_Profile:
+    """ A class that contains lighting properties. """
+    #--------------------------------------------#
+    #       Constructor
+    #--------------------------------------------#
+
+    def __init__(self, id: str, type: str, entity_ids: List[str], attributes: Dict[str, Any]):
+        self._id = id
+        self._type = type
+        self._entity_ids = entity_ids
+        self._attributes = attributes
+
+
+    #--------------------------------------------#
+    #       Properties
+    #--------------------------------------------#
+
+    @property
+    def attributes(self) -> Dict[str, Any]:
+        """ Returns the attributes. """
+        return self._attributes
+
+    @property
+    def entity_ids(self) -> List[str]:
+        """ Returns the entity ids. """
+        return self._entity_ids
+
+    @property
+    def id(self) -> str:
+        """ Returns the id. """
+        return self._id
+
+    @property
+    def type(self) -> str:
+        """ Returns the id. """
+        return self._type

@@ -1,5 +1,5 @@
 blueprint:
-  name: AL - Triggered Lighting (Brightness & Color Temperature)
+  name: AL - Triggered Lighting
   description: |
     Uses the 'Automatic Lighting' integration to create a profile that will turn on lighting when a trigger is triggered.
   domain: automation
@@ -34,6 +34,24 @@ blueprint:
       default: "23:59:59"
       selector:
         time:
+    illuminance_entity:
+      name: Daylight Sensor
+      description: The entity that measures the amount of daylight.
+      default: ""
+      selector:
+        entity:
+          domain: sensor
+          device_class: illuminance
+    illuminance_max:
+      name: Max Daylight Value
+      description: The maximum amount of daylight allowed.
+      default: 100
+      selector:
+        number:
+          mode: box
+          min: 1
+          max: 100000
+          unit_of_measurement: lx
     brightness:
       name: Brightness
       description: The brightness (in %) that the lights should be set to when turned on.
@@ -71,6 +89,8 @@ max_exceeded: silent
 mode: restart
 
 variables:
+  illuminance_entity: !input illuminance_entity
+  illuminance_max: !input illuminance_max
   raw_triggers: !input triggers
   triggers: >-
     {{ (raw_triggers|replace(' ', '')).split(',') }}
@@ -88,6 +108,7 @@ trigger:
     to: "on"
 condition:
   - "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count > 0 }}"
+  - "{{ True if illuminance_entity == '' else states(illuminance_entity)|float <= illuminance_max|float }}"
   - condition: time
     after: !input time_after
     before: !input time_before
