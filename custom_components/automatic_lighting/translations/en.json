@@ -21,7 +21,7 @@
                 "description": "From here you can configure the blocking settings of the integration. To disable the blocking feature, deselect the tracked lights below.",
                 "data": {
                     "block_lights": "The lights to track for manual control",
-                    "block_timeout": "The time the integration is blocked (in seconds)"
+                    "block_timeout": "The time (in seconds) the integration is blocked"
                 }
             }
         }
