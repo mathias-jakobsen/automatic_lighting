@@ -2,9 +2,10 @@
 A Home Assistant custom component that provides a set of events and services to facilitate more advanced lighting setups with Home Assistant's default automation and blueprint engine.
 
 ## Blueprints
-- Ambient Lighting:
+Ambient Lighting:\
 https://raw.githubusercontent.com/mathias-jakobsen/automatic_lighting/dev/blueprints/automation/al_ambiance_lighting.yaml
-- Triggered Lighting:
+
+Triggered Lighting:\
 https://raw.githubusercontent.com/mathias-jakobsen/automatic_lighting/dev/blueprints/automation/al_triggered_lighting.yaml
 
 ## Features
