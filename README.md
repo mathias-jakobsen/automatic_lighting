@@ -3,7 +3,7 @@ A Home Assistant custom component that provides a set of events and services to 
 
 ## Blueprints
 Ambient Lighting:\
-https://raw.githubusercontent.com/mathias-jakobsen/automatic_lighting/dev/blueprints/automation/al_ambiance_lighting.yaml
+https://raw.githubusercontent.com/mathias-jakobsen/automatic_lighting/dev/blueprints/automation/al_ambient_lighting.yaml
 
 Triggered Lighting:\
 https://raw.githubusercontent.com/mathias-jakobsen/automatic_lighting/dev/blueprints/automation/al_triggered_lighting.yaml
