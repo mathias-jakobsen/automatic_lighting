@@ -15,6 +15,7 @@ blueprint:
       description: The trigger(s) that will activate the lighting.
       selector:
         entity:
+          domain: binary_sensor
     lights:
       name: Lights
       description: The lights that should be turned on.
@@ -42,9 +43,9 @@ blueprint:
         entity:
           domain: sensor
           device_class: illuminance
-    illuminance_max:
-      name: Max Daylight Value
-      description: The maximum amount of daylight allowed.
+    illuminance_threshold:
+      name: Daylight Threshold
+      description: Defines the threshold of daylight below which the lights are turned on.
       default: 100
       selector:
         number:
@@ -90,7 +91,7 @@ mode: restart
 
 variables:
   illuminance_entity: !input illuminance_entity
-  illuminance_max: !input illuminance_max
+  illuminance_threshold: !input illuminance_threshold
   raw_triggers: !input triggers
   triggers: >-
     {{ (raw_triggers|replace(' ', '')).split(',') }}
@@ -108,7 +109,7 @@ trigger:
     to: "on"
 condition:
   - "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count > 0 }}"
-  - "{{ True if illuminance_entity == '' else states(illuminance_entity)|float <= illuminance_max|float }}"
+  - "{{ True if illuminance_entity == '' else states(illuminance_entity)|float <= illuminance_threshold|float }}"
   - condition: time
     after: !input time_after
     before: !input time_before
@@ -126,7 +127,7 @@ action:
       id: "{{ id }}"
       type: triggered
       lights: !input lights
-      brightness: !input brightness
+      brightness_pct: !input brightness
       kelvin: !input color_temp
   - wait_template: >-
       {{ expand(triggers)|selectattr('state', 'eq', 'off')|list|count == triggers|length }}

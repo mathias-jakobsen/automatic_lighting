@@ -28,7 +28,7 @@ class EntityModel(Generic[T]):
     #--------------------------------------------#
 
     def __init__(self, hass: HomeAssistant, logger: Logger, entity: T):
-        self._context_unique_id = get_random_string(10)
+        self._context_unique_id = get_random_string(6)
         self._entity = entity
         self._hass = hass
         self._logger = logger

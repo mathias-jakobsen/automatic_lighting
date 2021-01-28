@@ -37,9 +37,9 @@ blueprint:
         entity:
           domain: sensor
           device_class: illuminance
-    illuminance_max:
-      name: Max Daylight Value
-      description: The maximum amount of daylight allowed.
+    illuminance_threshold:
+      name: Daylight Threshold
+      description: Defines the threshold of daylight below which the lights are turned on.
       default: 100
       selector:
         number:
@@ -75,7 +75,7 @@ mode: restart
 
 variables:
   illuminance_entity: !input illuminance_entity
-  illuminance_max: !input illuminance_max
+  illuminance_threshold: !input illuminance_threshold
 
 trigger:
   - platform: event
@@ -92,7 +92,7 @@ trigger:
 condition:
   - condition: numeric_state
     entity_id: !input illuminance_entity
-    below: !input illuminance_max
+    below: !input illuminance_threshold
   - condition: time
     after: !input time_after
     before: !input time_before
@@ -110,13 +110,13 @@ action:
       id: "{{ id }}"
       type: ambiance
       lights: !input lights
-      brightness: !input brightness
+      brightness_pct: !input brightness
       kelvin: !input color_temp
   - wait_for_trigger:
       - platform: time
         at: !input time_before
       - platform: template
-        value_template: "{{ False if illuminance_entity == '' else states(illuminance_entity)|float > illuminance_max|float }}"
+        value_template: "{{ False if illuminance_entity == '' else states(illuminance_entity)|float > illuminance_threshold|float }}"
   - service: automatic_lighting.turn_off
     data:
       entity_id: !input al_entity

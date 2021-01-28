@@ -266,7 +266,7 @@ class AL_Model(EntityModel[AL_Entity]):
 
     def block(self, timeout: int) -> None:
         """ Blocks the model for a time period. """
-        self._logger.debug(f"Blocking for {self._block_timeout} seconds.")
+        self.logger.debug(f"Blocking for {self._block_timeout} seconds.")
 
         if self.is_blocked:
             self._block_timer.cancel()
@@ -274,14 +274,14 @@ class AL_Model(EntityModel[AL_Entity]):
         self._block_timeout = timeout
         self._blocked_until = datetime.now() + timedelta(seconds=self._block_timeout)
         self._block_timer = Timer(self.hass, self._block_timeout, self.unblock)
-        self._entity.update_entity(state=STATE_BLOCKED, **{ ATTR_BLOCKED_UNTIL: self._blocked_until })
+        self.entity.update_entity(state=STATE_BLOCKED, **{ ATTR_BLOCKED_UNTIL: self._blocked_until.strftime("%d/%m/%Y %H:%M:%S") })
 
     def unblock(self, _ = None) -> None:
         """ Unblocks the model """
         if not self.is_blocked:
             return
 
-        self._logger.debug(f"Unblocking after {self._block_timeout} seconds of inactivity.")
+        self.logger.debug(f"Unblocking after {self._block_timeout} seconds of inactivity.")
         self._block_timer.cancel()
         self._refresh(True)
 
@@ -292,7 +292,7 @@ class AL_Model(EntityModel[AL_Entity]):
 
     def _on_automations_reloaded(self, event: Event) -> None:
         """ Triggered when an automation_reloaded event has fired. """
-        self._logger.debug(f"Detected an automations reloaded event.")
+        self.logger.debug(f"Detected an automations reloaded event.")
         self._refresh()
 
     def _on_automation_state_change(self, event: Event) -> None:
@@ -311,12 +311,12 @@ class AL_Model(EntityModel[AL_Entity]):
         if old_state.state == new_state.state:
             return
 
-        self._logger.debug(f"Detected a state change for an automation.")
+        self.logger.debug(f"Detected a state change for an automation.")
         self._refresh()
 
     def _on_manual_control(self, entity_ids: List[str], context: Context) -> None:
         """ Triggered when manual control is detected. """
-        self._logger.debug(f"Detected manual control of following entities: {entity_ids}")
+        self.logger.debug(f"Detected manual control of following entities: {entity_ids}")
         self.block(self._block_timeout if self.is_blocked else self._block_config_timeout)
 
 
