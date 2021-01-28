@@ -8,6 +8,9 @@ https://raw.githubusercontent.com/mathias-jakobsen/automatic_lighting/dev/bluepr
 Triggered Lighting:\
 https://raw.githubusercontent.com/mathias-jakobsen/automatic_lighting/dev/blueprints/automation/al_triggered_lighting.yaml
 
+Triggered Lighting (RGB):\
+https://raw.githubusercontent.com/mathias-jakobsen/automatic_lighting/v1.5/blueprints/automation/al_triggered_lighting_rgb.yaml
+
 ## Features
 - Provides events and services to set ambient and triggered lighting through Home Assistant automations and blueprints.
 - Detects manual control of lights, blocking itself for a set time period to prevent unwanted interference.
