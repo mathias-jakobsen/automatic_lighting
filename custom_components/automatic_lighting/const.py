@@ -2,7 +2,7 @@
 #       Imports
 #-----------------------------------------------------------#
 
-from homeassistant.components.light import ATTR_BRIGHTNESS, ATTR_BRIGHTNESS_PCT, ATTR_KELVIN, VALID_BRIGHTNESS, VALID_BRIGHTNESS_PCT
+from homeassistant.components.light import ATTR_BRIGHTNESS, ATTR_BRIGHTNESS_PCT, ATTR_KELVIN, ATTR_RGB_COLOR, VALID_BRIGHTNESS, VALID_BRIGHTNESS_PCT
 from homeassistant.const import CONF_ID, CONF_LIGHTS, CONF_TYPE
 from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
@@ -41,6 +41,8 @@ STATE_AMBIANCE = "ambiance"
 STATE_BLOCKED = "blocked"
 STATE_TRIGGERED = "triggered"
 
+VALID_RGB_COLOR = vol.All(vol.ExactSequence((cv.byte, cv.byte, cv.byte)), vol.Coerce(tuple))
+
 
 #-----------------------------------------------------------#
 #       Schemas
@@ -60,5 +62,6 @@ SERVICE_SCHEMA_TURN_ON = {
     vol.Required(CONF_LIGHTS): dict,
     vol.Optional(ATTR_BRIGHTNESS): VALID_BRIGHTNESS,
     vol.Optional(ATTR_BRIGHTNESS_PCT): VALID_BRIGHTNESS_PCT,
-    vol.Optional(ATTR_KELVIN): cv.positive_int
+    vol.Optional(ATTR_KELVIN): cv.positive_int,
+    vol.Optional(ATTR_RGB_COLOR): VALID_RGB_COLOR
 }
