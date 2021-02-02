@@ -2,7 +2,8 @@
 #       Imports
 #-----------------------------------------------------------#
 
-from .entity_model import EntityModel
+from .entity_base import EntityBase
+from .entity_helpers import EntityHelpers
 from .timer import Timer
 from homeassistant.const import ATTR_DOMAIN, ATTR_SERVICE_DATA, EVENT_CALL_SERVICE
 from homeassistant.core import Context, Event, HomeAssistant

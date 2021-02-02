@@ -1,15 +1,18 @@
 blueprint:
-  name: AL - Triggered Lighting
+  name: Test Register
   description: |
     Uses the 'Automatic Lighting' integration to create a profile that will turn on lighting when a trigger is triggered.
   domain: automation
   input:
     al_entity:
       name: Automatic Lighting Entity
-      description: The 'Automatic Lighting' entity used to track the lighting.
+      description: The entity that supervises the Automatic Lighting system.
       selector:
         entity:
           integration: automatic_lighting
+    group:
+      name: Group
+      description: The name of the group that this automation should belong to.
     triggers:
       name: Triggers
       description: The trigger(s) that will activate the lighting.
@@ -64,7 +67,7 @@ blueprint:
           max: 100
           step: 1
           unit_of_measurement: "%"
-    color_temp:
+    color_temp_kelvin:
       name: Color Temperature
       description: The color temperature (in kelvin) that the lights should be set to when turned on.
       default: 3000
@@ -93,53 +96,70 @@ variables:
   illuminance_entity: !input illuminance_entity
   illuminance_threshold: !input illuminance_threshold
   raw_triggers: !input triggers
-  triggers: >-
-    {{ (raw_triggers|replace(' ', '')).split(',') }}
+  triggers: "{{ (raw_triggers|replace(' ', '')).split(',') }}"
 
 trigger:
-  - platform: event
-    event_type: automation_reloaded
+  #- platform: event
+  #  event_type: automation_reloaded
   - platform: event
     event_type: automatic_lighting_event
     event_data:
       entity_id: !input al_entity
-      type: refresh
+      type: restart
   - platform: state
     entity_id: !input triggers
     to: "on"
-condition:
-  - "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count > 0 }}"
-  - "{{ True if illuminance_entity == '' else states(illuminance_entity)|float <= illuminance_threshold|float }}"
-  - condition: time
-    after: !input time_after
-    before: !input time_before
 action:
   - choose:
       - conditions:
-          - "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'registration_open' }}"
+          - "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'restart' }}"
         sequence:
-          - service: automatic_lighting.register_lights
+          - service: automatic_lighting.register
             data:
+              entity_id: !input al_entity
+              group: !input group
               lights: !input lights
-  - variables:
-      id: >-
-        {% set ns = namespace(unique_id=[]) %}
-        {% for i in range(0, 10) %}
-          {% set ns.unique_id = ns.unique_id + [[0,1,2,3,4,5,6,7,8,9]|random] %}
-        {% endfor %}
-        {{ ns.unique_id|join("") }}
-  - service: automatic_lighting.turn_on
-    data:
-      entity_id: !input al_entity
-      id: "{{ id }}"
-      type: triggered
-      lights: !input lights
-      brightness_pct: !input brightness
-      kelvin: !input color_temp
-  - wait_template: >-
-      {{ expand(triggers)|selectattr('state', 'eq', 'off')|list|count == triggers|length }}
-  - delay: !input duration
-  - service: automatic_lighting.turn_off
-    data:
-      entity_id: !input al_entity
-      id: "{{ id }}"
+    default:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: !input al_entity
+                attribute: !input group
+                state: blocked
+            sequence:
+              - service: automatic_lighting.block
+                data:
+                  entity_id: !input al_entity
+                  group: !input group
+          - conditions:
+              - "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count > 0 }}"
+              - "{{ True if illuminance_entity == '' else states(illuminance_entity)|float <= illuminance_threshold|float }}"
+              - condition: time
+                after: !input time_after
+                before: !input time_before
+            sequence:
+              - variables:
+                  id: >-
+                    {% set ns = namespace(unique_id=[]) %}
+                    {% for i in range(0, 10) %}
+                      {% set ns.unique_id = ns.unique_id + [[0,1,2,3,4,5,6,7,8,9]|random] %}
+                    {% endfor %}
+                    {{ ns.unique_id|join("") }}
+              - service: automatic_lighting.turn_on
+                data:
+                  entity_id: !input al_entity
+                  group: !input group
+                  id: "{{ id }}"
+                  type: triggered
+                  lights: !input lights
+                  brightness_pct: !input brightness
+                  kelvin: !input color_temp_kelvin
+              - wait_template: >-
+                  {{ expand(triggers)|selectattr('state', 'eq', 'off')|list|count == triggers|length }}
+              - delay: !input duration
+              - service: automatic_lighting.turn_off
+                data:
+                  entity_id: !input al_entity
+                  group: !input group
+                  id: "{{ id }}"
+

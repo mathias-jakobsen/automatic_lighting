@@ -2,7 +2,7 @@
     "title": "Automatic Lighting",
     "config": {
         "abort": {
-            "already_configured": "Integration is already configured."
+            "already_configured": "Integration has already been configured."
         },
         "step": {
             "user": {
@@ -18,10 +18,9 @@
         "step": {
             "init": {
                 "title": "Automatic Lighting - Options",
-                "description": "From here you can configure the blocking settings of the integration. To disable the blocking feature, deselect the tracked lights below.",
+                "description": "From here you can configure settings of the integration.",
                 "data": {
-                    "block_lights": "The lights to track for manual control",
-                    "block_timeout": "The time (in seconds) the integration is blocked"
+                    "block_timeout": "The default time (in seconds) the integration is blocked when manual control is detected."
                 }
             }
         }
