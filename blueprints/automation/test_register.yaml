@@ -99,13 +99,17 @@ variables:
   triggers: "{{ (raw_triggers|replace(' ', '')).split(',') }}"
 
 trigger:
-  #- platform: event
-  #  event_type: automation_reloaded
   - platform: event
     event_type: automatic_lighting_event
     event_data:
       entity_id: !input al_entity
       type: restart
+  - platform: event
+    event_type: automatic_lighting_event
+    event_data:
+      entity_id: !input al_entity
+      group: !input group
+      type: refresh
   - platform: state
     entity_id: !input triggers
     to: "on"
@@ -126,13 +130,14 @@ action:
                 entity_id: !input al_entity
                 attribute: !input group
                 state: blocked
+              - "{{ False if trigger.platform != 'event' else trigger.event.event_type != 'refresh' }}"
             sequence:
               - service: automatic_lighting.block
                 data:
                   entity_id: !input al_entity
                   group: !input group
           - conditions:
-              - "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count > 0 }}"
+              - "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count == 1 }}"
               - "{{ True if illuminance_entity == '' else states(illuminance_entity)|float <= illuminance_threshold|float }}"
               - condition: time
                 after: !input time_after
@@ -162,4 +167,30 @@ action:
                   entity_id: !input al_entity
                   group: !input group
                   id: "{{ id }}"
-
+          - conditions:
+              - "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count > 1 }}"
+            sequence:
+              - variables:
+                  id: >-
+                    {% set ns = namespace(unique_id=[]) %}
+                    {% for i in range(0, 10) %}
+                      {% set ns.unique_id = ns.unique_id + [[0,1,2,3,4,5,6,7,8,9]|random] %}
+                    {% endfor %}
+                    {{ ns.unique_id|join("") }}
+              - service: automatic_lighting.turn_on
+                data:
+                  entity_id: !input al_entity
+                  group: !input group
+                  id: "{{ id }}"
+                  type: triggered
+                  lights: !input lights
+                  brightness_pct: !input brightness
+                  kelvin: !input color_temp_kelvin
+              - wait_template: >-
+                  {{ expand(triggers)|selectattr('state', 'eq', 'off')|list|count == triggers|length }}
+              - delay: !input duration
+              - service: automatic_lighting.turn_off
+                data:
+                  entity_id: !input al_entity
+                  group: !input group
+                  id: "{{ id }}"
