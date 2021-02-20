@@ -1,12 +1,15 @@
 blueprint:
-  name: AL - Triggered Lighting
+  name: Test
   description: |
     Uses the 'Automatic Lighting' integration to create a profile that will turn on lighting when a trigger is triggered.
   domain: automation
   input:
-    group_id:
-      name: Group
-      description: The id of the group that this automation should belong to.
+    al_entity:
+      name: AL Entity
+      description: The automatic lighting entity that is used to control the lighting.
+      selector:
+        entity:
+          integration: automatic_lighting
     triggers:
       name: Triggers
       description: The trigger(s) that will activate the lighting.
@@ -20,7 +23,6 @@ blueprint:
         target:
           entity:
             domain: light
-
     time_after:
       name: After
       description: The time after which the lights can be turned on.
@@ -62,7 +64,7 @@ blueprint:
           max: 100
           step: 1
           unit_of_measurement: "%"
-    color_temp:
+    color_temp_kelvin:
       name: Color Temperature
       description: The color temperature (in kelvin) that the lights should be set to when turned on.
       default: 3000
@@ -83,80 +85,91 @@ blueprint:
           min: 1
           max: 100000
           unit_of_measurement: s
-    block_enabled:
-      name: Enable Blocking.
-      description: Enables the automatic blocking mode for this automation.
-      default: true
-      selector:
-        boolean:
-    block_timeout:
-      name: Block Timeout
-      description: Sets the time that the automation should be blocked.
-      default: 120
-      selector:
-        number:
-          mode: box
-          min: 1
-          max: 100000
-          unit_of_measurement: s
 
 max_exceeded: silent
 mode: restart
 
 variables:
+  al_entity: !input al_entity
   illuminance_entity: !input illuminance_entity
   illuminance_threshold: !input illuminance_threshold
-  raw_triggers: !input triggers
-  triggers: >-
-    {{ (raw_triggers|replace(' ', '')).split(',') }}
+  triggers: !input triggers
+  triggers_on_count: "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count }}"
 
 trigger:
   - platform: event
-    event_type: automation_reloaded
-  - platform: event
     event_type: automatic_lighting_event
     event_data:
-      group_id: !input group_id
+      entity_id: !input al_entity
+      # type: refresh, reset
+
   - platform: state
     entity_id: !input triggers
     to: "on"
+
+  - platform: state
+    entity_id: !input triggers
+    to: "off"
 action:
+  - variables:
+      id: >
+        {% set context = trigger.to_state.context if trigger.platform == 'state' else trigger.event.context %}
+        {{ (states.automation|selectattr('context.parent_id', 'eq', context.id)|first).entity_id }}
   - choose:
       - conditions:
-          - "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'restart' }}"
+          - "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'reset' }}"
         sequence:
-          - service: automatic_lighting.register
+          - service: automatic_lighting.track_lights
             data:
-              group_id: !input group_id
+              entity_id: !input al_entity
               lights: !input lights
+
       - conditions:
-          - "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count > 0 }}"
-          - "{{ True if illuminance_entity == '' else states(illuminance_entity)|float <= illuminance_threshold|float }}"
-          - condition: time
-            after: !input time_after
-            before: !input time_before
+          - condition: or
+            conditions:
+              - condition: and
+                conditions:
+                  - "{{ trigger.platform == 'state' and trigger.to_state.state == 'on' }}"
+                  - "{{ states(al_entity) == 'blocked' }}"
+              - condition: and
+                conditions:
+                  - condition: or
+                    conditions:
+                      - condition: and
+                        conditions:
+                          - "{{ trigger.platform == 'state' and trigger.to_state.state == 'on' }}"
+                          - "{{ states(al_entity) == 'idle' }}"
+                      - condition: and
+                        conditions:
+                          - "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'request' }}"
+                          - "{{ triggers_on_count > 0 }}"
+                  - condition: time
+                    after: !input time_after
+                    before: !input time_before
+                    # other constraints
+              - condition: and
+                conditions:
+                  - "{{ trigger.platform == 'state' and trigger.to_state.state == 'on' }}"
+                  - "{{ states(al_entity) == 'active' }}"
+                  - "{{ state_attr(al_entity, 'id') == id }}"
         sequence:
-          - variables:
-              id: >-
-                {% set ns = namespace(unique_id=[]) %}
-                {% for i in range(0, 10) %}
-                  {% set ns.unique_id = ns.unique_id + [[0,1,2,3,4,5,6,7,8,9]|random] %}
-                {% endfor %}
-                {{ ns.unique_id|join("") }}
           - service: automatic_lighting.turn_on
             data:
-              group_id: !input group_id
-              automation_id: "{{ id }}"
-              type: triggered
+              entity_id: !input al_entity
+              id: "{{ id }}"
+              state: active
               lights: !input lights
-              brightness_pct: !input brightness
-              kelvin: !input color_temp
-              enable_block: !input block_enabled
-              block_timeout: !input block_timeout
-          - wait_template: >-
-              {{ expand(triggers)|selectattr('state', 'eq', 'off')|list|count == triggers|length }}
+              brightness: !input brightness
+              kelvin: !input color_temp_kelvin
+
+
+      - conditions:
+          - "{{ trigger.platform == 'state' and trigger.to_state.state == 'off' }}"
+          - "{{ triggers_on_count == 0 }}"
+          - "{{ states(al_entity) == 'active' }}"
+          - "{{ state_attr(al_entity, 'id') == id }}"
+        sequence:
           - delay: !input duration
           - service: automatic_lighting.turn_off
             data:
-              group_id: !input group_id
-              automation_id: "{{ id }}"
+              entity_id: !input al_entity

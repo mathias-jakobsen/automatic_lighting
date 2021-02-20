@@ -4,5 +4,6 @@
   "dependencies": ["automation", "light", "sensor"],
   "domain": "automatic_lighting",
   "name": "Automatic Lighting",
-  "requirements": []
+  "requirements": [],
+  "version": "1.00"
 }

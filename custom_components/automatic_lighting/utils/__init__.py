@@ -2,7 +2,7 @@
 #       Imports
 #-----------------------------------------------------------#
 
-from config.custom_components.automatic_lighting.const import CONF_NEW_STATE, CONF_OLD_STATE
+from ..const import CONF_NEW_STATE, CONF_OLD_STATE
 from .entity_base import EntityBase
 from .timer import Timer
 from homeassistant.components.automation import DOMAIN as AUTOMATION_DOMAIN, EVENT_AUTOMATION_RELOADED
