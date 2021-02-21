@@ -64,7 +64,7 @@ SERVICE_SCHEMA_TRACK_LIGHTS = {
 }
 
 SERVICE_SCHEMA_TURN_ON = {
-    vol.Required(CONF_ID): str,
+    vol.Required(CONF_ID): vol.Any(str, int),
     vol.Required(CONF_STATE): vol.In([STATE_ACTIVE, STATE_IDLE]),
     vol.Required(CONF_LIGHTS): vol.Any(dict, list, str),
     vol.Optional(ATTR_BRIGHTNESS): VALID_BRIGHTNESS,

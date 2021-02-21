@@ -64,7 +64,8 @@ class EntityBase(Entity):
         context = self.create_context()
         self.async_set_context(context)
         parsed_service_data = self._parse_service_data(service_data)
-        self.hass.async_create_task(self.hass.services.async_call(domain, service, { **parsed_service_data }, context=context))
+        self.hass.async_create_task(self.hass.services.async_call(domain, service, { **parsed_service_data }, context=context, blocking=True))
+
 
     def fire_event(self, event_type: str, **event_data: Any) -> None:
         """ Fires an event using the Home Assistant bus. """

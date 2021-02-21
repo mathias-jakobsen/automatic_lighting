@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict, List
 #       Constants
 #-----------------------------------------------------------#
 
+BLOCK_THROTTLE_TIME = 0.2
 REQUEST_DEBOUNCE_TIME = 0.2
 RESET_DEBOUNCE_TIME = 0.2
 START_DELAY = 0.5
@@ -53,6 +54,10 @@ class AL_Entity(EntityBase):
 
     def __init__(self, config_entry: ConfigEntry):
         EntityBase.__init__(self, getLogger(f"{LOGGER_BASE_NAME}.{config_entry.unique_id}"))
+
+        # --- Attributes ----------
+        self._blocked_at = None
+        self._blocked_until = None
 
         # --- Block ----------
         self._block_config_duration = config_entry.options.get(CONF_BLOCK_DURATION, DEFAULT_BLOCK_DURATION)
@@ -261,10 +266,14 @@ class AL_Entity(EntityBase):
 
     def _block(self, duration: int) -> None:
         """ Blocks the entity. """
+        if self.is_blocked and (datetime.now() - self._blocked_at).total_seconds() < BLOCK_THROTTLE_TIME and duration == self._block_duration:
+            return
+
         self.logger.debug(f"Blocking entity for {duration} seconds.")
         self._reset_block_timer()
         self._block_duration = duration
-        self._blocked_until = datetime.now() + timedelta(seconds=self._block_duration) if self._block_duration is not None else None
+        self._blocked_at = datetime.now()
+        self._blocked_until = self._blocked_at + timedelta(seconds=self._block_duration) if self._block_duration is not None else None
         self._block_timer = async_call_later(self.hass, self._block_duration, self._unblock)
         self.async_schedule_update_ha_state(True)
 
@@ -326,10 +335,11 @@ class AL_Entity(EntityBase):
         if self._current_profile:
             self._turn_off_unused_entities(self._current_profile.lights, lights)
 
+        self.logger.debug(f"Turning on profile {id} with following values: {attributes}")
         self._current_profile = AL_Lighting_Profile(id, state, lights, attributes)
         self._state = state
-        self.async_schedule_update_ha_state(True)
         self.call_service(LIGHT_DOMAIN, SERVICE_TURN_ON, entity_id=lights, **attributes)
+        self.async_schedule_update_ha_state(True)
 
 
     #--------------------------------------------#
