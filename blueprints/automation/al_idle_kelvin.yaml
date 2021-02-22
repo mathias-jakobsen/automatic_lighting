@@ -4,6 +4,11 @@ blueprint:
     Uses the 'Automatic Lighting' integration to create a profile that will turn on lighting when a no trigger is triggered.
   domain: automation
   input:
+    id:
+      name: Id
+      description: The id of the automation. Must be an unique value.
+      selector:
+        text:
     al_entity:
       name: AL Entity
       description: The automatic lighting entity that is used to control the lighting.
@@ -74,12 +79,7 @@ mode: restart
 
 variables:
   al_entity: !input al_entity
-  id: >
-    {% set ns = namespace(unique_id=[]) %}
-    {% for i in range(0, 10) %}
-      {% set ns.unique_id = ns.unique_id + [[0,1,2,3,4,5,6,7,8,9]|random] %}
-    {% endfor %}
-    {{ ns.unique_id|join('') }}
+  id: !input id
   illuminance_entity: !input illuminance_entity
   illuminance_threshold: !input illuminance_threshold
 trigger:

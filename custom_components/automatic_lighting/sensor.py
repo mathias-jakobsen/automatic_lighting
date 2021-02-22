@@ -8,7 +8,7 @@ from homeassistant.helpers import entity_platform
 from homeassistant.components.automation import EVENT_AUTOMATION_RELOADED
 from homeassistant.helpers.event import async_call_later
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.const import ATTR_ID, CONF_ENTITY_ID, CONF_ID, CONF_STATE, EVENT_HOMEASSISTANT_START, SERVICE_TURN_OFF, SERVICE_TURN_ON
+from homeassistant.const import ATTR_ID, CONF_ENTITY_ID, CONF_ID, CONF_NAME, CONF_STATE, EVENT_HOMEASSISTANT_START, SERVICE_TURN_OFF, SERVICE_TURN_ON
 from . import LOGGER_BASE_NAME
 from .const import ATTR_BLOCKED_UNTIL, CONF_BLOCK_DURATION, CONF_LIGHTS, DEFAULT_BLOCK_DURATION, DOMAIN, EVENT_DATA_TYPE_REQUEST, EVENT_DATA_TYPE_RESET, EVENT_TYPE_AUTOMATIC_LIGHTING, SERVICE_SCHEMA_TRACK_LIGHTS, SERVICE_SCHEMA_TURN_ON, SERVICE_TRACK_LIGHTS, STATE_ACTIVE, STATE_BLOCKED, STATE_IDLE
 from .utils import EntityBase, async_resolve_target, async_track_automations_changed, async_track_manual_control
@@ -65,7 +65,7 @@ class AL_Entity(EntityBase):
         self._block_enabled = True
 
         # --- Entity ----------
-        self._name = f"{DOMAIN} - {config_entry.unique_id}"
+        self._name = f"{DOMAIN} - {config_entry.data.get(CONF_NAME)}"
         self._state = STATE_IDLE
 
         # --- Lights ----------
