@@ -20,6 +20,7 @@ UNDO_UPDATE_LISTENER = "undo_update_listener"
 
 # ------ Configuration ---------------
 CONF_BLOCK_DURATION = "block_duration"
+CONF_LIGHT_GROUPS = "light_groups"
 CONF_LIGHTS = "lights"
 CONF_NEW_STATE = "new_state"
 CONF_OLD_STATE = "old_state"

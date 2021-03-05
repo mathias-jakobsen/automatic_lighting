@@ -10,7 +10,7 @@ from homeassistant.helpers.event import async_call_later
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.const import ATTR_ID, CONF_ENTITY_ID, CONF_ID, CONF_NAME, CONF_STATE, EVENT_HOMEASSISTANT_START, SERVICE_TURN_OFF, SERVICE_TURN_ON
 from . import LOGGER_BASE_NAME
-from .const import ATTR_BLOCKED_UNTIL, CONF_BLOCK_DURATION, CONF_LIGHTS, DEFAULT_BLOCK_DURATION, DOMAIN, EVENT_DATA_TYPE_REQUEST, EVENT_DATA_TYPE_RESET, EVENT_TYPE_AUTOMATIC_LIGHTING, SERVICE_SCHEMA_TRACK_LIGHTS, SERVICE_SCHEMA_TURN_ON, SERVICE_TRACK_LIGHTS, STATE_ACTIVE, STATE_BLOCKED, STATE_IDLE
+from .const import ATTR_BLOCKED_UNTIL, CONF_BLOCK_DURATION, CONF_LIGHTS, CONF_LIGHT_GROUPS, DEFAULT_BLOCK_DURATION, DOMAIN, EVENT_DATA_TYPE_REQUEST, EVENT_DATA_TYPE_RESET, EVENT_TYPE_AUTOMATIC_LIGHTING, SERVICE_SCHEMA_TRACK_LIGHTS, SERVICE_SCHEMA_TURN_ON, SERVICE_TRACK_LIGHTS, STATE_ACTIVE, STATE_BLOCKED, STATE_IDLE
 from .utils import EntityBase, async_resolve_target, async_track_automations_changed, async_track_manual_control
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Context, HomeAssistant, ServiceCall
@@ -69,7 +69,8 @@ class AL_Entity(EntityBase):
         self._state = STATE_IDLE
 
         # --- Lights ----------
-        self._tracked_lights = []
+        self._light_groups = config_entry.options.get(CONF_LIGHT_GROUPS, {})
+        self._tracked_lights = list(set(sum(self._light_groups.values(), [])))
 
         # --- Listeners ----------
         self._listeners = []
@@ -204,7 +205,7 @@ class AL_Entity(EntityBase):
             self._reset_reset_timer()
         else:
             self.logger.debug(f"Firing reset event.")
-            self._tracked_lights = []
+            self._tracked_lights = list(set(sum(self._light_groups.values(), [])))
             self._remove_listeners()
             self.fire_event(EVENT_TYPE_AUTOMATIC_LIGHTING, entity_id=self.entity_id, type=EVENT_DATA_TYPE_RESET)
 
@@ -290,8 +291,34 @@ class AL_Entity(EntityBase):
 
     def _turn_off_unused_entities(self, old_entity_ids: List[str], new_entity_ids: List[str]) -> None:
         """ Turns off entities if they are not used in the current profile. """
-        unused_entities = [entity_id for entity_id in old_entity_ids if entity_id not in new_entity_ids]
-        self.call_service(LIGHT_DOMAIN, SERVICE_TURN_OFF, entity_id=unused_entities)
+        blacklist = []
+        unused_entities = []
+
+        for i in old_entity_ids:
+            if i in self._light_groups:
+                blacklist = blacklist + self._light_groups[i]
+                unused_entities.append(i)
+                continue
+
+        for i in old_entity_ids:
+            if i in self._light_groups:
+                continue
+
+            if not i in blacklist:
+                unused_entities.append(i)
+
+        for i in new_entity_ids:
+            for x in unused_entities:
+                if x in self._light_groups and i in self._light_groups[x]:
+                    unused_entities.remove(x)
+                    unused_entities = unused_entities + [t for t in self._light_groups[x] if t not in new_entity_ids]
+
+                if x == i:
+                    unused_entities.remove(x)
+
+        if len(unused_entities) > 0:
+            self.logger.debug(f"Turning off unused entities: {unused_entities}")
+            self.call_service(LIGHT_DOMAIN, SERVICE_TURN_OFF, entity_id=unused_entities)
 
 
     #--------------------------------------------#
@@ -332,7 +359,7 @@ class AL_Entity(EntityBase):
         if self.is_blocked:
             return self._block(self._block_duration)
 
-        if self._current_profile:
+        if self._current_profile and self._current_profile.id != id:
             self._turn_off_unused_entities(self._current_profile.lights, lights)
 
         self.logger.debug(f"Turning on profile {id} with following values: {attributes}")
@@ -353,7 +380,7 @@ class AL_Entity(EntityBase):
         else:
             self.logger.debug(f"Detected a state change to {entity_id}.")
 
-        self._request()
+        self._reset()
 
     async def _async_on_manual_control(self, entity_ids: List[str], context: Context) -> None:
         """ Triggered when manual control of the lights are detected. """

@@ -160,7 +160,7 @@ action:
               state: active
               lights: !input lights
               brightness_pct: !input brightness
-              kelvin: !input kelvin
+              kelvin: !input color_temp_kelvin
 
       - conditions:
           - "{{ trigger.platform == 'state' and trigger.to_state.state == 'off' }}"

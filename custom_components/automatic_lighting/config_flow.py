@@ -3,10 +3,12 @@
 #-----------------------------------------------------------#
 
 from __future__ import annotations
-from .const import CONF_BLOCK_DURATION, DEFAULT_BLOCK_DURATION, DOMAIN
+from .const import CONF_BLOCK_DURATION, CONF_LIGHT_GROUPS, DEFAULT_BLOCK_DURATION, DOMAIN
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
-from homeassistant.const import CONF_NAME
+from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
+from homeassistant.const import CONF_ENTITIES, CONF_ENTITY_ID, CONF_NAME
 from homeassistant.core import callback
+from homeassistant.helpers import config_validation as cv
 from typing import Any, Dict, Union
 import voluptuous as vol
 
@@ -77,11 +79,32 @@ class AL_OptionsFlow(OptionsFlow):
     #--------------------------------------------#
 
     async def async_step_init(self, user_input: Union[Dict[str, Any], None] = None) -> Dict[str, Any]:
+        if not CONF_LIGHT_GROUPS in self._data:
+            self._data[CONF_LIGHT_GROUPS] = {}
+
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            light_groups = {}
+
+            for key in user_input[CONF_LIGHT_GROUPS]:
+                if key in self._data[CONF_LIGHT_GROUPS]:
+                    light_groups[key] = self._data[CONF_LIGHT_GROUPS][key]
+
+            self._data[CONF_LIGHT_GROUPS] = light_groups
+
+            if CONF_ENTITY_ID in user_input:
+                self._data[CONF_LIGHT_GROUPS][user_input[CONF_ENTITY_ID]] = user_input[CONF_ENTITIES]
+
+            if not user_input["new"]:
+                return self.async_create_entry(title="", data=self._data)
+
+        light_entity_ids = sorted(self.hass.states.async_entity_ids(LIGHT_DOMAIN))
 
         schema = vol.Schema({
-            vol.Required(CONF_BLOCK_DURATION, default=self._data.get(CONF_BLOCK_DURATION, DEFAULT_BLOCK_DURATION)): vol.All(int, vol.Range(min=0))
+            vol.Required(CONF_BLOCK_DURATION, default=self._data.get(CONF_BLOCK_DURATION, DEFAULT_BLOCK_DURATION)): vol.All(int, vol.Range(min=0)),
+            vol.Required(CONF_LIGHT_GROUPS, default=list(self._data.get(CONF_LIGHT_GROUPS, {}).keys())): cv.multi_select(sorted(list(self._data.get(CONF_LIGHT_GROUPS, {}).keys()))),
+            vol.Optional(CONF_ENTITY_ID): vol.In(light_entity_ids),
+            vol.Optional(CONF_ENTITIES, default=[]): cv.multi_select(light_entity_ids),
+            vol.Required("new", default=False): bool
         })
 
         return self.async_show_form(step_id=STEP_INIT, data_schema=schema)
