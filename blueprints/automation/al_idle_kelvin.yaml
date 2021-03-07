@@ -71,30 +71,30 @@ blueprint:
 
 max_exceeded: silent
 mode: restart
-trigger_variables:
+
+variables:
+  al_entity: !input al_entity
+  id: >-
+    {% set ns = namespace(unique_id=[]) %}
+    {% for i in range(0, 10) %}
+      {% set ns.unique_id = ns.unique_id + [[0,1,2,3,4,5,6,7,8,9]|random] %}
+    {% endfor %}
+    {{ ns.unique_id|join("") }}
   illuminance_entity: !input illuminance_entity
-  illuminance_threshold: !input illuminance_entity
-  illuminance_below_trigger: >-
-    {{ False if illuminance_entity == '' else { 'platform': 'state', 'entity_id': illuminance_entity, 'below': illuminance_threshold } }}
+  illuminance_threshold: !input illuminance_threshold
+
 trigger:
   - platform: event
     event_type: automatic_lighting_event
     event_data:
       entity_id: !input al_entity
-  - "{{ illuminance_below_trigger }}"
+  - platform: numeric_state
+    entity_id: !input illuminance_entity
+    below: !input illuminance_threshold
   - platform: time
     at: !input time_after
 action:
   - variables:
-      al_entity: !input al_entity
-      id: >-
-        {% set ns = namespace(unique_id=[]) %}
-        {% for i in range(0, 10) %}
-          {% set ns.unique_id = ns.unique_id + [[0,1,2,3,4,5,6,7,8,9]|random] %}
-        {% endfor %}
-        {{ ns.unique_id|join("") }}
-      illuminance_entity: !input illuminance_entity
-      illuminance_threshold: !input illuminance_threshold
       is_request_event: "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'request' }}"
       is_reset_event: "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'reset' }}"
   - choose:

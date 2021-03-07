@@ -4,11 +4,6 @@ blueprint:
     Uses the 'Automatic Lighting' integration to create a profile that will turn on lighting when a trigger is triggered.
   domain: automation
   input:
-    id:
-      name: Id
-      description: The id of the automation. Must be an unique value.
-      selector:
-        text:
     al_entity:
       name: AL Entity
       description: The automatic lighting entity that is used to control the lighting.
@@ -118,12 +113,17 @@ variables:
   color_red: !input color_red
   color_green: !input color_green
   color_blue: !input color_blue
-  id: !input id
+  id: >-
+    {% set ns = namespace(unique_id=[]) %}
+    {% for i in range(0, 10) %}
+      {% set ns.unique_id = ns.unique_id + [[0,1,2,3,4,5,6,7,8,9]|random] %}
+    {% endfor %}
+    {{ ns.unique_id|join("") }}
   illuminance_entity: !input illuminance_entity
   illuminance_threshold: !input illuminance_threshold
   raw_triggers: !input triggers
   triggers: "{{ (raw_triggers|replace(' ', '')).split(',') }}"
-  triggers_on_count: "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count }}"
+
 trigger:
   - platform: event
     event_type: automatic_lighting_event
@@ -132,19 +132,18 @@ trigger:
   - platform: state
     entity_id: !input triggers
     to: "on"
-  - platform: state
-    entity_id: !input triggers
-    to: "off"
 action:
+  - variables:
+      is_request_event: "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'request' }}"
+      is_reset_event: "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'reset' }}"
   - choose:
       - conditions:
-          - "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'reset' }}"
+          - "{{ is_reset_event }}"
         sequence:
           - service: automatic_lighting.track_lights
             data:
               entity_id: !input al_entity
               lights: !input lights
-
 
       - conditions:
           - condition: or
@@ -163,8 +162,8 @@ action:
                           - "{{ states(al_entity) == 'idle' or (states(al_entity) == 'active' and state_attr(al_entity, 'id') != id) }}"
                       - condition: and
                         conditions:
-                          - "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'request' }}"
-                          - "{{ triggers_on_count > 0 }}"
+                          - "{{ is_request_event }}"
+                          - "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count > 0 }}"
                   - condition: time
                     after: !input time_after
                     before: !input time_before
@@ -172,8 +171,7 @@ action:
               - condition: and
                 conditions:
                   - "{{ trigger.platform == 'state' and trigger.to_state.state == 'on' }}"
-                  - "{{ states(al_entity) == 'active' }}"
-                  - "{{ state_attr(al_entity, 'id') == id }}"
+                  - "{{ states(al_entity) == 'active' and state_attr(al_entity, 'id') == id }}"
         sequence:
           - service: automatic_lighting.turn_on
             data:
@@ -183,13 +181,20 @@ action:
               lights: !input lights
               brightness_pct: !input brightness
               rgb_color: "{{ [color_red, color_green, color_blue] }}"
+          - wait_for_trigger:
+              - platform: state
+                entity_id: !input al_entity
+                attribute: id
+              - platform: state
+                entity_id: !input triggers
+                to: "off"
+          - choose:
+              - conditions:
+                  - "{{ states(al_entity) == 'active' and state_attr(al_entity, 'id') == id }}"
+                  - "{{ expand(triggers)|selectattr('state', 'eq', 'on')|list|count == 0 }}"
+                sequence:
+                  - delay: !input duration
+                  - service: automatic_lighting.turn_off
+                    data:
+                      entity_id: !input al_entity
 
-      - conditions:
-          - "{{ trigger.platform == 'state' and trigger.to_state.state == 'off' }}"
-          - "{{ triggers_on_count == 0 }}"
-          - "{{ states(al_entity) == 'active' and state_attr(al_entity, 'id') == id }}"
-        sequence:
-          - delay: !input duration
-          - service: automatic_lighting.turn_off
-            data:
-              entity_id: !input al_entity

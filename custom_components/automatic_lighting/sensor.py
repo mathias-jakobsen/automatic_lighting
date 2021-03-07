@@ -3,18 +3,18 @@
 #-----------------------------------------------------------#
 
 from __future__ import annotations
-from datetime import datetime, timedelta
-from homeassistant.helpers import entity_platform
-from homeassistant.components.automation import EVENT_AUTOMATION_RELOADED
-from homeassistant.helpers.event import async_call_later
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.const import ATTR_ID, CONF_ENTITY_ID, CONF_ID, CONF_NAME, CONF_STATE, EVENT_HOMEASSISTANT_START, SERVICE_TURN_OFF, SERVICE_TURN_ON
 from . import LOGGER_BASE_NAME
 from .const import ATTR_BLOCKED_UNTIL, CONF_BLOCK_DURATION, CONF_LIGHTS, CONF_LIGHT_GROUPS, DEFAULT_BLOCK_DURATION, DOMAIN, EVENT_DATA_TYPE_REQUEST, EVENT_DATA_TYPE_RESET, EVENT_TYPE_AUTOMATIC_LIGHTING, SERVICE_SCHEMA_TRACK_LIGHTS, SERVICE_SCHEMA_TURN_ON, SERVICE_TRACK_LIGHTS, STATE_ACTIVE, STATE_BLOCKED, STATE_IDLE
 from .utils import EntityBase, async_resolve_target, async_track_automations_changed, async_track_manual_control
+from datetime import datetime, timedelta
+from homeassistant.components.automation import EVENT_AUTOMATION_RELOADED
+from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
+from homeassistant.const import ATTR_ID, CONF_ID, CONF_NAME, CONF_STATE, EVENT_HOMEASSISTANT_START, SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import Context, HomeAssistant, ServiceCall
-from logging import Logger, getLogger
+from homeassistant.core import Context, HomeAssistant
+from homeassistant.helpers import entity_platform
+from homeassistant.helpers.event import async_call_later
+from logging import getLogger
 from typing import Any, Callable, Dict, List
 
 

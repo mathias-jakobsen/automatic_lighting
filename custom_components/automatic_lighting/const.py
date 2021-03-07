@@ -3,7 +3,7 @@
 #-----------------------------------------------------------#
 
 from homeassistant.components.light import ATTR_BRIGHTNESS, ATTR_BRIGHTNESS_PCT, ATTR_KELVIN, ATTR_RGB_COLOR, VALID_BRIGHTNESS, VALID_BRIGHTNESS_PCT
-from homeassistant.const import CONF_BRIGHTNESS, CONF_ID, CONF_STATE
+from homeassistant.const import CONF_ID, CONF_STATE
 from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 
