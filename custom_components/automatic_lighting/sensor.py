@@ -186,7 +186,7 @@ class AL_Entity(EntityBase):
                 return
 
             if self._current_profile:
-                self.logger.debug(f"A lighting profile was provided: {self._current_profile}")
+                self.logger.debug(f"A lighting profile was provided: {self._current_profile.id}")
                 self._state = self._current_profile.state
                 self._turn_off_unused_entities(self._tracked_lights, self._current_profile.lights)
                 self.call_service(LIGHT_DOMAIN, SERVICE_TURN_ON, entity_id=self._current_profile.lights, **self._current_profile.attributes)

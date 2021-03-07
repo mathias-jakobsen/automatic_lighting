@@ -4,6 +4,11 @@ blueprint:
     Uses the 'Automatic Lighting' integration to create a profile that will turn on lighting when a no trigger is triggered.
   domain: automation
   input:
+    id:
+      name: Id
+      description: The id of the automation. Must be an unique value.
+      selector:
+        text:
     al_entity:
       name: AL Entity
       description: The automatic lighting entity that is used to control the lighting.
@@ -71,45 +76,36 @@ blueprint:
 
 max_exceeded: silent
 mode: restart
-trigger_variables:
+
+variables:
+  al_entity: !input al_entity
+  id: !input id
   illuminance_entity: !input illuminance_entity
-  illuminance_threshold: !input illuminance_entity
-  illuminance_below_trigger: >-
-    {{ False if illuminance_entity == '' else { 'platform': 'state', 'entity_id': illuminance_entity, 'below': illuminance_threshold } }}
+  illuminance_threshold: !input illuminance_threshold
 trigger:
   - platform: event
     event_type: automatic_lighting_event
     event_data:
       entity_id: !input al_entity
-  - "{{ illuminance_below_trigger }}"
+  - platform: state
+    entity_id: !input illuminance_entity
   - platform: time
     at: !input time_after
 action:
-  - variables:
-      al_entity: !input al_entity
-      id: >-
-        {% set ns = namespace(unique_id=[]) %}
-        {% for i in range(0, 10) %}
-          {% set ns.unique_id = ns.unique_id + [[0,1,2,3,4,5,6,7,8,9]|random] %}
-        {% endfor %}
-        {{ ns.unique_id|join("") }}
-      illuminance_entity: !input illuminance_entity
-      illuminance_threshold: !input illuminance_threshold
-      is_request_event: "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'request' }}"
-      is_reset_event: "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'reset' }}"
   - choose:
       - conditions:
-          - "{{ is_reset_event }}"
+          - "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'reset' }}"
         sequence:
           - service: automatic_lighting.track_lights
             data:
               entity_id: !input al_entity
               lights: !input lights
 
+
       - conditions:
           - condition: or
             conditions:
-              - "{{ is_request_event }}"
+              - "{{ trigger.platform == 'event' and trigger.event.event_type == 'automatic_lighting_event' and trigger.event.data.type == 'request' }}"
               - "{{ states(al_entity) == 'idle' and state_attr(al_entity, 'id') != id }}"
           - "{{ states(illuminance_entity)|float <= illuminance_threshold|float }}"
           - condition: time
@@ -125,12 +121,12 @@ action:
               brightness_pct: !input brightness
               kelvin: !input color_temp_kelvin
           - wait_for_trigger:
-              - platform: state
-                entity_id: !input al_entity
-                from: "idle"
               - platform: numeric_state
                 entity_id: !input illuminance_entity
                 above: !input illuminance_threshold
+              - platform: state
+                entity_id: !input al_entity
+                from: "idle"
               - platform: time
                 at: !input time_before
           - choose:

@@ -1,7 +1,8 @@
 blueprint:
-  name: Automatic Lighting - Active (Kelvin)
+  name: Automatic Lighting - Active (Adaptive)
   description: |
     Uses the 'Automatic Lighting' integration to create a profile that will turn on lighting when a trigger is triggered.
+    This will use the values of an Adaptive Lighting entity to set the brightness and color (in kelvin) of the lights.
   domain: automation
   input:
     al_entity:
@@ -53,9 +54,16 @@ blueprint:
           min: 1
           max: 100000
           unit_of_measurement: lx
-    brightness:
-      name: Brightness
-      description: The brightness (in %) that the lights should be set to when turned on.
+    adaptive_entity:
+      name: Adaptive Lighting Entity
+      description: The entity that provides the adaptive lighting values.
+      selector:
+        entity:
+          domain: switch
+          integration: adaptive_lighting
+    min_brightness:
+      name: Minimum Brightness
+      description: The minimum brightness (in %) that the lights should be set to when turned on.
       default: 100
       selector:
         number:
@@ -64,17 +72,6 @@ blueprint:
           max: 100
           step: 1
           unit_of_measurement: "%"
-    color_temp_kelvin:
-      name: Color Temperature
-      description: The color temperature (in kelvin) that the lights should be set to when turned on.
-      default: 3000
-      selector:
-        number:
-          mode: slider
-          min: 2200
-          max: 6500
-          step: 25
-          unit_of_measurement: K
     duration:
       name: Duration
       description: The duration (in seconds) that the lights are turned on.
@@ -99,6 +96,7 @@ trigger:
     to: "on"
 action:
   - variables:
+      adaptive_entity: !input adaptive_entity
       al_entity: !input al_entity
       id: >-
         {% set ns = namespace(unique_id=[]) %}
@@ -155,8 +153,8 @@ action:
               id: "{{ id }}"
               state: active
               lights: !input lights
-              brightness_pct: !input brightness
-              kelvin: !input color_temp_kelvin
+              brightness_pct: "{{ state_attr(adaptive_entity, 'brightness_pct')|int }}"
+              kelvin: "{{ state_attr(adaptive_entity, 'color_temp_kelvin')|int }}"
           - wait_for_trigger:
               - platform: state
                 entity_id: !input al_entity
